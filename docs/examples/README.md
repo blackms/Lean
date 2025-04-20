@@ -2,71 +2,58 @@
 
 ## Overview
 
-This section provides practical examples of implementing trading strategies using QuantConnect Lean. These examples demonstrate how to use the various components of the platform to create effective trading algorithms.
+This section provides practical examples of implementing trading strategies using QuantConnect Lean. These examples demonstrate how to use the various components of Lean to build, test, and deploy algorithmic trading strategies.
 
-## Basic Strategies
+## Example Categories
 
-Basic strategies demonstrate fundamental concepts and simple implementations. They are ideal for beginners to understand how Lean works and how to implement basic trading ideas.
+```mermaid
+graph TD
+    A[Implementation Examples] --> B[Basic Strategies]
+    A --> C[Advanced Strategies]
+    A --> D[Custom Data Integration]
+    
+    B --> B1[Moving Average Crossover]
+    B --> B2[RSI Strategy]
+    B --> B3[Pairs Trading]
+    
+    C --> C1[Multi-Factor Strategy]
+    C --> C2[Machine Learning Strategy]
+    C --> C3[Options Strategy]
+    
+    D --> D1[Custom Data Source]
+    D --> D2[Alternative Data]
+    D --> D3[Fundamental Data]
+```
+
+### 1. Basic Strategies
+
+Basic strategies demonstrate fundamental concepts in algorithmic trading. They are simple to understand and implement, making them ideal for beginners.
+
+[Learn more about Basic Strategies](./basic-strategies.md)
+
+### 2. Advanced Strategies
+
+Advanced strategies demonstrate more complex trading concepts and techniques. They often combine multiple components and may require more sophisticated analysis.
+
+[Learn more about Advanced Strategies](./advanced-strategies.md)
+
+### 3. Custom Data Integration
+
+Custom data integration examples demonstrate how to incorporate external data sources into your trading strategies. This can include alternative data, fundamental data, or any other data source not provided by default in Lean.
+
+[Learn more about Custom Data Integration](./custom-data.md)
+
+## Basic Strategy Examples
 
 ### 1. Moving Average Crossover
 
-The Moving Average Crossover strategy is a classic trend-following strategy that generates buy signals when a short-term moving average crosses above a long-term moving average, and sell signals when it crosses below.
+The Moving Average Crossover strategy is one of the simplest and most widely used trading strategies. It generates buy signals when a short-term moving average crosses above a long-term moving average, and sell signals when the short-term moving average crosses below the long-term moving average.
 
 ```csharp
 public class MovingAverageCrossoverAlgorithm : QCAlgorithm
 {
-    private Symbol _symbol;
     private SimpleMovingAverage _fast;
     private SimpleMovingAverage _slow;
-
-    public override void Initialize()
-    {
-        SetStartDate(2018, 1, 1);
-        SetEndDate(2018, 12, 31);
-        SetCash(100000);
-        
-        _symbol = AddEquity("SPY", Resolution.Daily).Symbol;
-        
-        _fast = SMA(_symbol, 50, Resolution.Daily);
-        _slow = SMA(_symbol, 200, Resolution.Daily);
-    }
-
-    public override void OnData(Slice data)
-    {
-        if (!_slow.IsReady)
-            return;
-        
-        if (!Portfolio.Invested)
-        {
-            if (_fast > _slow)
-            {
-                SetHoldings(_symbol, 1.0);
-                Debug("Bought SPY at " + Time.ToShortDateString());
-            }
-        }
-        else
-        {
-            if (_fast < _slow)
-            {
-                Liquidate(_symbol);
-                Debug("Sold SPY at " + Time.ToShortDateString());
-            }
-        }
-    }
-}
-```
-
-[Learn more about Basic Strategies](./basic-strategies.md)
-
-### 2. RSI Mean Reversion
-
-The RSI Mean Reversion strategy is a counter-trend strategy that buys when the RSI indicator is oversold and sells when it's overbought.
-
-```csharp
-public class RsiMeanReversionAlgorithm : QCAlgorithm
-{
-    private Symbol _symbol;
-    private RelativeStrengthIndex _rsi;
     
     public override void Initialize()
     {
@@ -74,9 +61,49 @@ public class RsiMeanReversionAlgorithm : QCAlgorithm
         SetEndDate(2018, 12, 31);
         SetCash(100000);
         
-        _symbol = AddEquity("SPY", Resolution.Daily).Symbol;
+        AddEquity("SPY");
         
-        _rsi = RSI(_symbol, 14, MovingAverageType.Simple, Resolution.Daily);
+        _fast = SMA("SPY", 50);
+        _slow = SMA("SPY", 200);
+    }
+    
+    public override void OnData(Slice data)
+    {
+        if (!_fast.IsReady || !_slow.IsReady)
+            return;
+        
+        if (!Portfolio.Invested && _fast > _slow)
+        {
+            SetHoldings("SPY", 1.0);
+        }
+        else if (Portfolio.Invested && _fast < _slow)
+        {
+            Liquidate();
+        }
+    }
+}
+```
+
+### 2. RSI Strategy
+
+The Relative Strength Index (RSI) strategy is a momentum oscillator that measures the speed and change of price movements. It generates buy signals when the RSI falls below an oversold threshold and then rises back above it, and sell signals when the RSI rises above an overbought threshold and then falls back below it.
+
+```csharp
+public class RsiAlgorithm : QCAlgorithm
+{
+    private RelativeStrengthIndex _rsi;
+    private decimal _overbought = 70m;
+    private decimal _oversold = 30m;
+    
+    public override void Initialize()
+    {
+        SetStartDate(2018, 1, 1);
+        SetEndDate(2018, 12, 31);
+        SetCash(100000);
+        
+        AddEquity("SPY");
+        
+        _rsi = RSI("SPY", 14);
     }
     
     public override void OnData(Slice data)
@@ -84,21 +111,13 @@ public class RsiMeanReversionAlgorithm : QCAlgorithm
         if (!_rsi.IsReady)
             return;
         
-        if (!Portfolio.Invested)
+        if (!Portfolio.Invested && _rsi < _oversold)
         {
-            if (_rsi < 30)
-            {
-                SetHoldings(_symbol, 1.0);
-                Debug("Bought SPY at " + Time.ToShortDateString() + " with RSI " + _rsi.Current.Value);
-            }
+            SetHoldings("SPY", 1.0);
         }
-        else
+        else if (Portfolio.Invested && _rsi > _overbought)
         {
-            if (_rsi > 70)
-            {
-                Liquidate(_symbol);
-                Debug("Sold SPY at " + Time.ToShortDateString() + " with RSI " + _rsi.Current.Value);
-            }
+            Liquidate();
         }
     }
 }
@@ -106,17 +125,17 @@ public class RsiMeanReversionAlgorithm : QCAlgorithm
 
 ### 3. Pairs Trading
 
-The Pairs Trading strategy identifies pairs of securities that are historically correlated and trades when their relationship deviates from the norm.
+Pairs trading is a market-neutral strategy that matches a long position in one security with a short position in another security. The strategy is based on the assumption that the two securities have a stable relationship, and when the relationship deviates from its historical norm, it will eventually revert back.
 
 ```csharp
 public class PairsTradingAlgorithm : QCAlgorithm
 {
-    private Symbol _symbolA;
-    private Symbol _symbolB;
+    private Symbol _symbol1;
+    private Symbol _symbol2;
     private decimal _spread;
     private decimal _meanSpread;
-    private decimal _stdSpread;
-    private int _lookback = 60;
+    private decimal _stdDevSpread;
+    private int _lookbackPeriod = 20;
     private List<decimal> _spreadHistory = new List<decimal>();
     
     public override void Initialize()
@@ -125,82 +144,73 @@ public class PairsTradingAlgorithm : QCAlgorithm
         SetEndDate(2018, 12, 31);
         SetCash(100000);
         
-        _symbolA = AddEquity("SPY", Resolution.Daily).Symbol;
-        _symbolB = AddEquity("IVV", Resolution.Daily).Symbol;
+        _symbol1 = AddEquity("AAPL").Symbol;
+        _symbol2 = AddEquity("MSFT").Symbol;
     }
     
     public override void OnData(Slice data)
     {
-        if (!data.ContainsKey(_symbolA) || !data.ContainsKey(_symbolB))
+        if (!data.ContainsKey(_symbol1) || !data.ContainsKey(_symbol2))
             return;
         
-        decimal priceA = data[_symbolA].Close;
-        decimal priceB = data[_symbolB].Close;
+        var price1 = data[_symbol1].Close;
+        var price2 = data[_symbol2].Close;
         
-        _spread = priceA / priceB;
+        _spread = price1 / price2;
         _spreadHistory.Add(_spread);
         
-        if (_spreadHistory.Count > _lookback)
+        if (_spreadHistory.Count > _lookbackPeriod)
             _spreadHistory.RemoveAt(0);
         
-        if (_spreadHistory.Count < _lookback)
+        if (_spreadHistory.Count < _lookbackPeriod)
             return;
         
         _meanSpread = _spreadHistory.Average();
-        _stdSpread = StandardDeviation(_spreadHistory);
+        _stdDevSpread = StandardDeviation(_spreadHistory);
         
-        decimal zScore = (_spread - _meanSpread) / _stdSpread;
+        var zscore = (_spread - _meanSpread) / _stdDevSpread;
         
-        if (!Portfolio.Invested)
+        if (zscore > 2 && !Portfolio.Invested)
         {
-            if (zScore > 2)
-            {
-                SetHoldings(_symbolA, -0.5);
-                SetHoldings(_symbolB, 0.5);
-                Debug("Sold SPY and Bought IVV at " + Time.ToShortDateString() + " with z-score " + zScore);
-            }
-            else if (zScore < -2)
-            {
-                SetHoldings(_symbolA, 0.5);
-                SetHoldings(_symbolB, -0.5);
-                Debug("Bought SPY and Sold IVV at " + Time.ToShortDateString() + " with z-score " + zScore);
-            }
+            // Spread is too high, short symbol1 and long symbol2
+            SetHoldings(_symbol1, -0.5);
+            SetHoldings(_symbol2, 0.5);
         }
-        else
+        else if (zscore < -2 && !Portfolio.Invested)
         {
-            if (Math.Abs(zScore) < 0.5)
-            {
-                Liquidate();
-                Debug("Closed positions at " + Time.ToShortDateString() + " with z-score " + zScore);
-            }
+            // Spread is too low, long symbol1 and short symbol2
+            SetHoldings(_symbol1, 0.5);
+            SetHoldings(_symbol2, -0.5);
+        }
+        else if (Math.Abs(zscore) < 0.5 && Portfolio.Invested)
+        {
+            // Spread has reverted to mean, liquidate positions
+            Liquidate();
         }
     }
     
     private decimal StandardDeviation(List<decimal> values)
     {
-        decimal mean = values.Average();
-        decimal sumOfSquares = values.Sum(x => (x - mean) * (x - mean));
+        var mean = values.Average();
+        var sumOfSquares = values.Sum(x => (x - mean) * (x - mean));
         return (decimal)Math.Sqrt((double)(sumOfSquares / values.Count));
     }
 }
 ```
 
-## Advanced Strategies
+## Advanced Strategy Examples
 
-Advanced strategies demonstrate more complex implementations and sophisticated trading ideas. They are suitable for experienced users who want to leverage the full power of Lean.
+### 1. Multi-Factor Strategy
 
-### 1. Multi-Factor Ranking
-
-The Multi-Factor Ranking strategy ranks securities based on multiple factors and trades the top and bottom performers.
+Multi-factor strategies combine multiple factors or signals to make trading decisions. They often use a scoring system to rank securities based on various factors and then select the top-ranked securities for investment.
 
 ```csharp
-public class MultiFactor : QCAlgorithm
+public class MultifactorAlgorithm : QCAlgorithm
 {
-    private Symbol[] _symbols;
+    private List<Symbol> _symbols = new List<Symbol>();
     private Dictionary<Symbol, decimal> _momentumScores = new Dictionary<Symbol, decimal>();
     private Dictionary<Symbol, decimal> _valueScores = new Dictionary<Symbol, decimal>();
     private Dictionary<Symbol, decimal> _qualityScores = new Dictionary<Symbol, decimal>();
-    private Dictionary<Symbol, decimal> _compositeScores = new Dictionary<Symbol, decimal>();
     
     public override void Initialize()
     {
@@ -208,18 +218,17 @@ public class MultiFactor : QCAlgorithm
         SetEndDate(2018, 12, 31);
         SetCash(100000);
         
-        // Add a universe of stocks
-        UniverseSettings.Resolution = Resolution.Daily;
+        // Add universe selection
         AddUniverse(CoarseSelectionFunction, FineSelectionFunction);
         
         // Schedule rebalancing
-        Schedule.On(DateRules.MonthStart(), TimeRules.AfterMarketOpen(), Rebalance);
+        Schedule.On(DateRules.MonthStart(), TimeRules.AfterMarketOpen("SPY"), Rebalance);
     }
     
     public IEnumerable<Symbol> CoarseSelectionFunction(IEnumerable<CoarseFundamental> coarse)
     {
         return coarse
-            .Where(x => x.Price > 5 && x.DollarVolume > 5000000)
+            .Where(x => x.Price > 10 && x.DollarVolume > 10000000)
             .OrderByDescending(x => x.DollarVolume)
             .Take(100)
             .Select(x => x.Symbol);
@@ -227,28 +236,18 @@ public class MultiFactor : QCAlgorithm
     
     public IEnumerable<Symbol> FineSelectionFunction(IEnumerable<FineFundamental> fine)
     {
-        return fine
-            .Where(x => x.MarketCap > 500000000)
+        _symbols = fine
+            .Where(x => x.ValuationRatios.PERatio > 0)
             .Take(50)
-            .Select(x => x.Symbol);
-    }
-    
-    public void OnSecuritiesChanged(SecurityChanges changes)
-    {
-        _symbols = changes.AddedSecurities.Select(x => x.Symbol).ToArray();
+            .Select(x => x.Symbol)
+            .ToList();
         
-        foreach (var symbol in _symbols)
-        {
-            _momentumScores[symbol] = 0;
-            _valueScores[symbol] = 0;
-            _qualityScores[symbol] = 0;
-            _compositeScores[symbol] = 0;
-        }
+        return _symbols;
     }
     
     public void Rebalance()
     {
-        if (_symbols == null || _symbols.Length == 0)
+        if (_symbols.Count == 0)
             return;
         
         // Calculate factor scores
@@ -256,53 +255,59 @@ public class MultiFactor : QCAlgorithm
         CalculateValueScores();
         CalculateQualityScores();
         
-        // Calculate composite scores
+        // Combine factor scores
+        var combinedScores = new Dictionary<Symbol, decimal>();
         foreach (var symbol in _symbols)
         {
-            _compositeScores[symbol] = 
-                0.4m * _momentumScores[symbol] + 
-                0.3m * _valueScores[symbol] + 
-                0.3m * _qualityScores[symbol];
+            var momentumScore = _momentumScores.GetValueOrDefault(symbol, 0);
+            var valueScore = _valueScores.GetValueOrDefault(symbol, 0);
+            var qualityScore = _qualityScores.GetValueOrDefault(symbol, 0);
+            
+            combinedScores[symbol] = momentumScore + valueScore + qualityScore;
         }
         
-        // Rank securities by composite score
-        var rankedSymbols = _compositeScores
+        // Select top 10 securities
+        var topSymbols = combinedScores
             .OrderByDescending(x => x.Value)
+            .Take(10)
             .Select(x => x.Key)
             .ToList();
         
-        // Select top and bottom performers
-        var topSymbols = rankedSymbols.Take(5).ToList();
-        var bottomSymbols = rankedSymbols.Skip(rankedSymbols.Count - 5).Take(5).ToList();
-        
-        // Liquidate existing positions
-        Liquidate();
-        
-        // Invest in top performers
-        foreach (var symbol in topSymbols)
+        // Liquidate existing positions that are not in the top 10
+        foreach (var holding in Portfolio.Values)
         {
-            SetHoldings(symbol, 0.1m);
+            if (holding.Invested && !topSymbols.Contains(holding.Symbol))
+            {
+                Liquidate(holding.Symbol);
+            }
         }
         
-        // Short bottom performers
-        foreach (var symbol in bottomSymbols)
+        // Invest in top 10 securities with equal weight
+        foreach (var symbol in topSymbols)
         {
-            SetHoldings(symbol, -0.1m);
+            SetHoldings(symbol, 0.1);
         }
     }
     
     private void CalculateMomentumScores()
     {
-        // Calculate momentum scores (e.g., 12-month return)
+        _momentumScores.Clear();
+        
         foreach (var symbol in _symbols)
         {
             var history = History(symbol, 252, Resolution.Daily);
-            if (history.Count() < 252)
+            if (history.Count() == 0)
                 continue;
             
             var prices = history.Select(x => x.Close).ToList();
-            var momentum = prices.Last() / prices.First() - 1;
+            var returns = new List<decimal>();
             
+            for (int i = 1; i < prices.Count; i++)
+            {
+                returns.Add(prices[i] / prices[i - 1] - 1);
+            }
+            
+            var momentum = returns.TakeLast(63).Sum(); // 3-month momentum
             _momentumScores[symbol] = momentum;
         }
         
@@ -312,18 +317,24 @@ public class MultiFactor : QCAlgorithm
     
     private void CalculateValueScores()
     {
-        // Calculate value scores (e.g., P/E ratio)
+        _valueScores.Clear();
+        
         foreach (var symbol in _symbols)
         {
             var security = Securities[symbol];
             var fundamental = security.Fundamentals;
             
-            if (fundamental == null || fundamental.ValuationRatios.PERatio <= 0)
+            if (fundamental == null)
                 continue;
             
-            var value = 1 / fundamental.ValuationRatios.PERatio;
+            var pe = fundamental.ValuationRatios.PERatio;
+            var pb = fundamental.ValuationRatios.PBRatio;
             
-            _valueScores[symbol] = value;
+            if (pe <= 0 || pb <= 0)
+                continue;
+            
+            var valueScore = 1 / pe + 1 / pb; // Lower PE and PB ratios are better for value
+            _valueScores[symbol] = valueScore;
         }
         
         // Normalize scores
@@ -332,18 +343,24 @@ public class MultiFactor : QCAlgorithm
     
     private void CalculateQualityScores()
     {
-        // Calculate quality scores (e.g., ROE)
+        _qualityScores.Clear();
+        
         foreach (var symbol in _symbols)
         {
             var security = Securities[symbol];
             var fundamental = security.Fundamentals;
             
-            if (fundamental == null || fundamental.OperationRatios.ROE <= 0)
+            if (fundamental == null)
                 continue;
             
-            var quality = fundamental.OperationRatios.ROE;
+            var roe = fundamental.OperationRatios.ROE;
+            var roa = fundamental.OperationRatios.ROA;
             
-            _qualityScores[symbol] = quality;
+            if (roe <= 0 || roa <= 0)
+                continue;
+            
+            var qualityScore = roe + roa; // Higher ROE and ROA are better for quality
+            _qualityScores[symbol] = qualityScore;
         }
         
         // Normalize scores
@@ -352,12 +369,11 @@ public class MultiFactor : QCAlgorithm
     
     private void NormalizeScores(Dictionary<Symbol, decimal> scores)
     {
-        var values = scores.Values.ToList();
-        if (values.Count == 0)
+        if (scores.Count == 0)
             return;
         
-        var min = values.Min();
-        var max = values.Max();
+        var min = scores.Values.Min();
+        var max = scores.Values.Max();
         
         if (max == min)
             return;
@@ -370,142 +386,98 @@ public class MultiFactor : QCAlgorithm
 }
 ```
 
-[Learn more about Advanced Strategies](./advanced-strategies.md)
-
 ### 2. Machine Learning Strategy
 
-The Machine Learning Strategy uses machine learning algorithms to predict future price movements.
+Machine learning strategies use statistical models to make predictions about future price movements. They often involve training a model on historical data and then using the model to make predictions on new data.
 
-```csharp
-public class MachineLearningAlgorithm : QCAlgorithm
-{
-    private Symbol _symbol;
-    private int _lookback = 30;
-    private int _predictionHorizon = 5;
-    private PyObject _model;
-    private PyObject _scaler;
+```python
+class MachineLearningAlgorithm(QCAlgorithm):
     
-    public override void Initialize()
-    {
-        SetStartDate(2018, 1, 1);
-        SetEndDate(2018, 12, 31);
-        SetCash(100000);
+    def Initialize(self):
+        self.SetStartDate(2018, 1, 1)
+        self.SetEndDate(2018, 12, 31)
+        self.SetCash(100000)
         
-        _symbol = AddEquity("SPY", Resolution.Daily).Symbol;
+        self.symbol = self.AddEquity("SPY").Symbol
         
-        // Import Python modules
-        var sklearn = PyImport.ImportModule("sklearn.ensemble");
-        var preprocessing = PyImport.ImportModule("sklearn.preprocessing");
+        self.lookback = 20
+        self.features = 5
+        self.split = 0.8
         
-        // Create model and scaler
-        _model = sklearn.GetAttr("RandomForestRegressor").Invoke();
-        _scaler = preprocessing.GetAttr("StandardScaler").Invoke();
+        self.SetWarmUp(self.lookback)
         
-        // Schedule training
-        Schedule.On(DateRules.WeekStart(), TimeRules.AfterMarketOpen(), TrainModel);
-    }
+        # Schedule training and prediction
+        self.Schedule.On(self.DateRules.EveryDay(self.symbol), self.TimeRules.AfterMarketOpen(self.symbol), self.TrainModel)
+        self.Schedule.On(self.DateRules.EveryDay(self.symbol), self.TimeRules.AfterMarketOpen(self.symbol, 10), self.MakePrediction)
+        
+        self.model = None
+        self.prediction = None
     
-    public void TrainModel()
-    {
-        // Get historical data
-        var history = History(_symbol, _lookback + _predictionHorizon, Resolution.Daily);
-        if (history.Count() < _lookback + _predictionHorizon)
-            return;
+    def TrainModel(self):
+        if self.IsWarmingUp:
+            return
         
-        // Prepare features and labels
-        var features = new List<List<double>>();
-        var labels = new List<double>();
+        # Get historical data
+        history = self.History(self.symbol, self.lookback, Resolution.Daily)
+        if len(history) < self.lookback:
+            return
         
-        for (int i = 0; i < history.Count() - _lookback - _predictionHorizon; i++)
-        {
-            var window = history.Skip(i).Take(_lookback).ToList();
-            var label = history.Skip(i + _lookback + _predictionHorizon - 1).First();
+        # Prepare features and labels
+        X = []
+        y = []
+        
+        for i in range(len(history) - self.features):
+            features = []
+            for j in range(self.features):
+                features.append(float(history.iloc[i + j].close))
             
-            var feature = new List<double>();
-            for (int j = 0; j < window.Count; j++)
-            {
-                feature.Add((double)window[j].Close);
-            }
-            
-            features.Add(feature);
-            labels.Add((double)label.Close);
-        }
+            X.append(features)
+            y.append(1 if history.iloc[i + self.features].close > history.iloc[i + self.features - 1].close else 0)
         
-        // Convert to numpy arrays
-        var np = PyImport.ImportModule("numpy");
-        var X = np.GetAttr("array").Invoke(features.ToArray());
-        var y = np.GetAttr("array").Invoke(labels.ToArray());
+        # Split data into training and testing sets
+        split_idx = int(len(X) * self.split)
+        X_train = X[:split_idx]
+        y_train = y[:split_idx]
         
-        // Scale features
-        X = _scaler.GetAttr("fit_transform").Invoke(X);
-        
-        // Train model
-        _model.GetAttr("fit").Invoke(X, y);
-    }
+        # Train the model
+        from sklearn.ensemble import RandomForestClassifier
+        self.model = RandomForestClassifier(n_estimators=100)
+        self.model.fit(X_train, y_train)
     
-    public override void OnData(Slice data)
-    {
-        if (!data.ContainsKey(_symbol) || _model == null)
-            return;
+    def MakePrediction(self):
+        if self.IsWarmingUp or self.model is None:
+            return
         
-        // Get historical data
-        var history = History(_symbol, _lookback, Resolution.Daily);
-        if (history.Count() < _lookback)
-            return;
+        # Get recent data for prediction
+        history = self.History(self.symbol, self.features, Resolution.Daily)
+        if len(history) < self.features:
+            return
         
-        // Prepare features
-        var features = new List<double>();
-        foreach (var bar in history)
-        {
-            features.Add((double)bar.Close);
-        }
+        # Prepare features for prediction
+        features = []
+        for i in range(self.features):
+            features.append(float(history.iloc[i].close))
         
-        // Convert to numpy array
-        var np = PyImport.ImportModule("numpy");
-        var X = np.GetAttr("array").Invoke(new[] { features.ToArray() });
+        # Make prediction
+        self.prediction = self.model.predict([features])[0]
         
-        // Scale features
-        X = _scaler.GetAttr("transform").Invoke(X);
-        
-        // Make prediction
-        var prediction = _model.GetAttr("predict").Invoke(X);
-        var predictedPrice = (decimal)prediction.GetItem(0).As<double>();
-        
-        // Current price
-        var currentPrice = data[_symbol].Close;
-        
-        // Trading logic
-        if (predictedPrice > currentPrice * 1.02m)
-        {
-            if (!Portfolio.Invested)
-            {
-                SetHoldings(_symbol, 1.0);
-                Debug("Bought SPY at " + Time.ToShortDateString() + " with predicted price " + predictedPrice);
-            }
-        }
-        else if (predictedPrice < currentPrice * 0.98m)
-        {
-            if (Portfolio.Invested)
-            {
-                Liquidate(_symbol);
-                Debug("Sold SPY at " + Time.ToShortDateString() + " with predicted price " + predictedPrice);
-            }
-        }
-    }
-}
+        # Execute trades based on prediction
+        if self.prediction == 1 and not self.Portfolio.Invested:
+            self.SetHoldings(self.symbol, 1.0)
+        elif self.prediction == 0 and self.Portfolio.Invested:
+            self.Liquidate()
 ```
 
 ### 3. Options Strategy
 
-The Options Strategy trades options based on volatility and price movements of the underlying asset.
+Options strategies involve trading options contracts rather than the underlying securities. They can be used to generate income, hedge risk, or speculate on price movements.
 
 ```csharp
-public class OptionsStrategy : QCAlgorithm
+public class CoveredCallAlgorithm : QCAlgorithm
 {
-    private Symbol _underlying;
-    private Symbol _optionSymbol;
-    private decimal _strikePrice;
-    private DateTime _expiry;
+    private Symbol _equity;
+    private Symbol _option;
+    private int _strikePrice;
     
     public override void Initialize()
     {
@@ -513,130 +485,130 @@ public class OptionsStrategy : QCAlgorithm
         SetEndDate(2018, 12, 31);
         SetCash(100000);
         
-        // Add underlying asset
-        _underlying = AddEquity("SPY", Resolution.Minute).Symbol;
+        // Add equity
+        _equity = AddEquity("SPY").Symbol;
         
-        // Add option chain
-        var option = AddOption("SPY", Resolution.Minute);
-        option.SetFilter(universe => universe.Strikes(-2, 2).Expiration(0, 30));
+        // Add option
+        var option = AddOption("SPY");
+        option.SetFilter(universe => universe
+            .Strikes(-10, +10)
+            .Expiration(0, 30)
+            .IncludeWeeklys());
         
-        // Set up indicators
-        var volatility = new StandardDeviation(_underlying, 20, Resolution.Daily);
-        
-        // Schedule option selection
-        Schedule.On(DateRules.EveryDay(), TimeRules.AfterMarketOpen(), SelectOption);
+        // Schedule rebalancing
+        Schedule.On(DateRules.MonthStart(), TimeRules.AfterMarketOpen("SPY"), Rebalance);
     }
     
-    public void SelectOption()
+    public override void OnData(Slice slice)
     {
-        // Get option chain
-        var chain = OptionChainProvider.GetOptionContractList(_underlying, Time);
+        if (!Portfolio.Invested)
+            return;
+        
+        if (slice.OptionChains.Count == 0)
+            return;
+        
+        var chain = slice.OptionChains[_equity];
         if (chain.Count == 0)
             return;
         
-        // Get ATM options expiring in about 30 days
-        var atmOptions = chain
-            .Where(x => x.ID.OptionRight == OptionRight.Call)
-            .OrderBy(x => Math.Abs(Securities[_underlying].Price - x.ID.StrikePrice))
-            .ThenBy(x => (x.ID.Date - Time).TotalDays)
-            .Where(x => (x.ID.Date - Time).TotalDays > 25 && (x.ID.Date - Time).TotalDays < 35)
-            .Take(1)
-            .ToList();
-        
-        if (atmOptions.Count == 0)
-            return;
-        
-        // Select option
-        var option = atmOptions.First();
-        _optionSymbol = option.Symbol;
-        _strikePrice = option.ID.StrikePrice;
-        _expiry = option.ID.Date;
-        
-        // Add option to portfolio
-        AddOptionContract(_optionSymbol);
+        // Check if our option has expired
+        var option = chain.Where(x => x.Symbol == _option).FirstOrDefault();
+        if (option == null || option.Expiry.Date <= Time.Date)
+        {
+            _option = null;
+            Rebalance();
+        }
     }
     
-    public override void OnData(Slice data)
+    public void Rebalance()
     {
-        if (_optionSymbol == null || !data.ContainsKey(_optionSymbol))
+        // Buy the equity if we don't already own it
+        if (!Portfolio[_equity].Invested)
+        {
+            SetHoldings(_equity, 0.8);
+        }
+        
+        // Wait for equity order to fill
+        if (!Portfolio[_equity].Invested)
             return;
         
-        // Get option data
-        var option = data[_optionSymbol];
+        // Get the option chain
+        var chains = OptionChains.GetAllOptionChains();
+        if (chains.Count == 0)
+            return;
         
-        // Trading logic
-        if (!Portfolio.Invested)
-        {
-            // Buy call option when underlying is trending up
-            var history = History(_underlying, 20, Resolution.Daily);
-            if (history.Count() < 20)
-                return;
-            
-            var prices = history.Select(x => x.Close).ToList();
-            var sma5 = prices.TakeLast(5).Average();
-            var sma20 = prices.Average();
-            
-            if (sma5 > sma20)
-            {
-                Buy(_optionSymbol, 1);
-                Debug("Bought SPY call option at " + Time.ToShortDateString() + " with strike " + _strikePrice + " expiring on " + _expiry.ToShortDateString());
-            }
-        }
-        else
-        {
-            // Sell option if it's profitable or close to expiry
-            var position = Portfolio[_optionSymbol];
-            var daysToExpiry = (_expiry - Time).TotalDays;
-            
-            if (position.UnrealizedProfitPercent > 0.2m || daysToExpiry < 5)
-            {
-                Liquidate(_optionSymbol);
-                Debug("Sold SPY call option at " + Time.ToShortDateString() + " with profit " + position.UnrealizedProfitPercent);
-            }
-        }
+        var chain = chains[_equity];
+        if (chain.Count == 0)
+            return;
+        
+        // Find the nearest call option above the current price
+        var calls = chain
+            .Where(x => x.Right == OptionRight.Call)
+            .Where(x => x.Expiry > Time.Date.AddDays(20) && x.Expiry <= Time.Date.AddDays(30))
+            .OrderBy(x => x.Expiry)
+            .ThenBy(x => Math.Abs(x.Strike - Securities[_equity].Price))
+            .ToList();
+        
+        if (calls.Count == 0)
+            return;
+        
+        var call = calls.First();
+        _option = call.Symbol;
+        _strikePrice = (int)call.Strike;
+        
+        // Sell the call option
+        Sell(_option, 1);
     }
 }
 ```
 
-## Custom Data Integration
+## Custom Data Integration Examples
 
-Custom data integration examples demonstrate how to incorporate external data sources into Lean algorithms.
+### 1. Custom Data Source
 
-### 1. CSV Data Integration
-
-The CSV Data Integration example shows how to import and use data from CSV files.
+Custom data sources allow you to incorporate external data into your trading strategies. This example demonstrates how to create a custom data source for weather data.
 
 ```csharp
-public class MyCustomData : BaseData
+public class WeatherData : BaseData
 {
-    public decimal Value { get; set; }
+    public decimal Temperature { get; set; }
+    public decimal Precipitation { get; set; }
+    public decimal WindSpeed { get; set; }
     
-    public override DateTime EndTime => Time;
+    public override DateTime EndTime => Time + TimeSpan.FromDays(1);
     
     public override SubscriptionDataSource GetSource(SubscriptionDataConfig config, DateTime date, bool isLiveMode)
     {
-        return new SubscriptionDataSource(
-            Path.Combine("CustomData", "MyCustomData", date.ToString("yyyyMMdd") + ".csv"),
-            SubscriptionTransportMedium.LocalFile
+        var source = Path.Combine(
+            Globals.DataFolder,
+            "weather",
+            config.Symbol.Value.ToLower(),
+            $"{date:yyyyMMdd}.csv"
         );
+        
+        return new SubscriptionDataSource(source, SubscriptionTransportMedium.LocalFile);
     }
     
     public override BaseData Reader(SubscriptionDataConfig config, string line, DateTime date, bool isLiveMode)
     {
         var csv = line.Split(',');
-        return new MyCustomData
+        
+        return new WeatherData
         {
             Symbol = config.Symbol,
-            Time = DateTime.Parse(csv[0]),
-            Value = decimal.Parse(csv[1])
+            Time = date,
+            Temperature = decimal.Parse(csv[1]),
+            Precipitation = decimal.Parse(csv[2]),
+            WindSpeed = decimal.Parse(csv[3]),
+            Value = decimal.Parse(csv[1]) // Temperature as the value
         };
     }
 }
 
-public class CsvDataAlgorithm : QCAlgorithm
+public class WeatherAlgorithm : QCAlgorithm
 {
-    private Symbol _customDataSymbol;
-    private Symbol _equitySymbol;
+    private Symbol _weather;
+    private Symbol _equity;
     
     public override void Initialize()
     {
@@ -644,147 +616,77 @@ public class CsvDataAlgorithm : QCAlgorithm
         SetEndDate(2018, 12, 31);
         SetCash(100000);
         
-        _equitySymbol = AddEquity("SPY", Resolution.Daily).Symbol;
-        _customDataSymbol = AddData<MyCustomData>("CUSTOM", Resolution.Daily).Symbol;
+        // Add custom data
+        _weather = AddData<WeatherData>("NYC").Symbol;
+        
+        // Add equity
+        _equity = AddEquity("KO").Symbol;
     }
     
     public override void OnData(Slice data)
     {
-        if (!data.ContainsKey(_customDataSymbol) || !data.ContainsKey(_equitySymbol))
+        if (!data.ContainsKey(_weather))
             return;
         
-        var customData = data[_customDataSymbol];
-        var equity = data[_equitySymbol];
+        var weather = data[_weather];
         
-        if (customData.Value > 0 && !Portfolio.Invested)
+        // Trading logic based on weather data
+        if (weather.Temperature > 30 && !Portfolio[_equity].Invested)
         {
-            SetHoldings(_equitySymbol, 1.0);
-            Debug("Bought SPY at " + Time.ToShortDateString() + " with custom data value " + customData.Value);
+            // Hot day, buy Coca-Cola
+            SetHoldings(_equity, 1.0);
         }
-        else if (customData.Value < 0 && Portfolio.Invested)
+        else if (weather.Temperature < 10 && Portfolio[_equity].Invested)
         {
-            Liquidate(_equitySymbol);
-            Debug("Sold SPY at " + Time.ToShortDateString() + " with custom data value " + customData.Value);
+            // Cold day, sell Coca-Cola
+            Liquidate(_equity);
         }
     }
 }
 ```
 
-[Learn more about Custom Data Integration](./custom-data.md)
+### 2. Alternative Data
 
-### 2. API Data Integration
-
-The API Data Integration example shows how to import and use data from external APIs.
-
-```csharp
-public class ApiData : BaseData
-{
-    public decimal Value { get; set; }
-    
-    public override DateTime EndTime => Time;
-    
-    public override SubscriptionDataSource GetSource(SubscriptionDataConfig config, DateTime date, bool isLiveMode)
-    {
-        if (isLiveMode)
-        {
-            return new SubscriptionDataSource(
-                "https://api.example.com/data?date=" + date.ToString("yyyyMMdd"),
-                SubscriptionTransportMedium.Rest
-            );
-        }
-        else
-        {
-            return new SubscriptionDataSource(
-                Path.Combine("CustomData", "ApiData", date.ToString("yyyyMMdd") + ".json"),
-                SubscriptionTransportMedium.LocalFile
-            );
-        }
-    }
-    
-    public override BaseData Reader(SubscriptionDataConfig config, string line, DateTime date, bool isLiveMode)
-    {
-        var jObject = JObject.Parse(line);
-        return new ApiData
-        {
-            Symbol = config.Symbol,
-            Time = DateTime.Parse(jObject["time"].ToString()),
-            Value = decimal.Parse(jObject["value"].ToString())
-        };
-    }
-}
-
-public class ApiDataAlgorithm : QCAlgorithm
-{
-    private Symbol _apiDataSymbol;
-    private Symbol _equitySymbol;
-    
-    public override void Initialize()
-    {
-        SetStartDate(2018, 1, 1);
-        SetEndDate(2018, 12, 31);
-        SetCash(100000);
-        
-        _equitySymbol = AddEquity("SPY", Resolution.Daily).Symbol;
-        _apiDataSymbol = AddData<ApiData>("API", Resolution.Daily).Symbol;
-    }
-    
-    public override void OnData(Slice data)
-    {
-        if (!data.ContainsKey(_apiDataSymbol) || !data.ContainsKey(_equitySymbol))
-            return;
-        
-        var apiData = data[_apiDataSymbol];
-        var equity = data[_equitySymbol];
-        
-        if (apiData.Value > 0 && !Portfolio.Invested)
-        {
-            SetHoldings(_equitySymbol, 1.0);
-            Debug("Bought SPY at " + Time.ToShortDateString() + " with API data value " + apiData.Value);
-        }
-        else if (apiData.Value < 0 && Portfolio.Invested)
-        {
-            Liquidate(_equitySymbol);
-            Debug("Sold SPY at " + Time.ToShortDateString() + " with API data value " + apiData.Value);
-        }
-    }
-}
-```
-
-### 3. Alternative Data Integration
-
-The Alternative Data Integration example shows how to incorporate alternative data sources such as news sentiment or social media data.
+Alternative data refers to non-traditional data sources that can provide unique insights for trading strategies. This example demonstrates how to use sentiment data from social media.
 
 ```csharp
 public class SentimentData : BaseData
 {
     public decimal Sentiment { get; set; }
+    public int Volume { get; set; }
     
-    public override DateTime EndTime => Time;
+    public override DateTime EndTime => Time + TimeSpan.FromDays(1);
     
     public override SubscriptionDataSource GetSource(SubscriptionDataConfig config, DateTime date, bool isLiveMode)
     {
-        return new SubscriptionDataSource(
-            Path.Combine("CustomData", "Sentiment", date.ToString("yyyyMMdd") + ".csv"),
-            SubscriptionTransportMedium.LocalFile
+        var source = Path.Combine(
+            Globals.DataFolder,
+            "sentiment",
+            config.Symbol.Value.ToLower(),
+            $"{date:yyyyMMdd}.csv"
         );
+        
+        return new SubscriptionDataSource(source, SubscriptionTransportMedium.LocalFile);
     }
     
     public override BaseData Reader(SubscriptionDataConfig config, string line, DateTime date, bool isLiveMode)
     {
         var csv = line.Split(',');
+        
         return new SentimentData
         {
             Symbol = config.Symbol,
-            Time = DateTime.Parse(csv[0]),
-            Sentiment = decimal.Parse(csv[1])
+            Time = date,
+            Sentiment = decimal.Parse(csv[1]),
+            Volume = int.Parse(csv[2]),
+            Value = decimal.Parse(csv[1]) // Sentiment as the value
         };
     }
 }
 
 public class SentimentAlgorithm : QCAlgorithm
 {
-    private Symbol _sentimentSymbol;
-    private Symbol _equitySymbol;
+    private Dictionary<Symbol, Symbol> _sentimentMap = new Dictionary<Symbol, Symbol>();
     
     public override void Initialize()
     {
@@ -792,35 +694,146 @@ public class SentimentAlgorithm : QCAlgorithm
         SetEndDate(2018, 12, 31);
         SetCash(100000);
         
-        _equitySymbol = AddEquity("SPY", Resolution.Daily).Symbol;
-        _sentimentSymbol = AddData<SentimentData>("SENTIMENT", Resolution.Daily).Symbol;
+        // Add equities
+        var symbols = new[] { "AAPL", "MSFT", "GOOG" };
+        foreach (var ticker in symbols)
+        {
+            var equity = AddEquity(ticker).Symbol;
+            var sentiment = AddData<SentimentData>(ticker).Symbol;
+            _sentimentMap[sentiment] = equity;
+        }
     }
     
     public override void OnData(Slice data)
     {
-        if (!data.ContainsKey(_sentimentSymbol) || !data.ContainsKey(_equitySymbol))
+        var sentiments = new Dictionary<Symbol, decimal>();
+        
+        // Collect sentiment data
+        foreach (var kvp in data.Where(x => x.Value is SentimentData))
+        {
+            var sentiment = (SentimentData)kvp.Value;
+            var equitySymbol = _sentimentMap[sentiment.Symbol];
+            sentiments[equitySymbol] = sentiment.Sentiment;
+        }
+        
+        if (sentiments.Count == 0)
             return;
         
-        var sentiment = data[_sentimentSymbol];
-        var equity = data[_equitySymbol];
+        // Rank securities by sentiment
+        var rankedSecurities = sentiments
+            .OrderByDescending(x => x.Value)
+            .ToList();
         
-        if (sentiment.Sentiment > 0.5m && !Portfolio.Invested)
+        // Liquidate positions in securities with negative sentiment
+        foreach (var kvp in rankedSecurities.Where(x => x.Value < 0))
         {
-            SetHoldings(_equitySymbol, 1.0);
-            Debug("Bought SPY at " + Time.ToShortDateString() + " with sentiment " + sentiment.Sentiment);
+            if (Portfolio[kvp.Key].Invested)
+            {
+                Liquidate(kvp.Key);
+            }
         }
-        else if (sentiment.Sentiment < -0.5m && Portfolio.Invested)
+        
+        // Invest in securities with positive sentiment
+        foreach (var kvp in rankedSecurities.Where(x => x.Value > 0))
         {
-            Liquidate(_equitySymbol);
-            Debug("Sold SPY at " + Time.ToShortDateString() + " with sentiment " + sentiment.Sentiment);
+            if (!Portfolio[kvp.Key].Invested)
+            {
+                SetHoldings(kvp.Key, 1.0 / rankedSecurities.Count(x => x.Value > 0));
+            }
         }
     }
 }
 ```
 
+### 3. Fundamental Data
+
+Fundamental data refers to financial data about companies, such as financial statements, ratios, and other metrics. This example demonstrates how to use fundamental data in a trading strategy.
+
+```csharp
+public class FundamentalAlgorithm : QCAlgorithm
+{
+    public override void Initialize()
+    {
+        SetStartDate(2018, 1, 1);
+        SetEndDate(2018, 12, 31);
+        SetCash(100000);
+        
+        // Add universe selection
+        AddUniverse(CoarseSelectionFunction, FineSelectionFunction);
+        
+        // Schedule rebalancing
+        Schedule.On(DateRules.MonthStart(), TimeRules.AfterMarketOpen("SPY"), Rebalance);
+    }
+    
+    public IEnumerable<Symbol> CoarseSelectionFunction(IEnumerable<CoarseFundamental> coarse)
+    {
+        return coarse
+            .Where(x => x.Price > 10 && x.DollarVolume > 10000000)
+            .OrderByDescending(x => x.DollarVolume)
+            .Take(100)
+            .Select(x => x.Symbol);
+    }
+    
+    public IEnumerable<Symbol> FineSelectionFunction(IEnumerable<FineFundamental> fine)
+    {
+        return fine
+            .Where(x => x.ValuationRatios.PERatio > 0 && x.ValuationRatios.PERatio < 20)
+            .Where(x => x.ValuationRatios.PBRatio > 0 && x.ValuationRatios.PBRatio < 5)
+            .Where(x => x.OperationRatios.ROE > 0.1m)
+            .OrderBy(x => x.ValuationRatios.PERatio)
+            .Take(10)
+            .Select(x => x.Symbol);
+    }
+    
+    public void Rebalance()
+    {
+        // Liquidate existing positions that are not in the universe
+        foreach (var holding in Portfolio.Values)
+        {
+            if (holding.Invested && !UniverseManager.ActiveSecurities.ContainsKey(holding.Symbol))
+            {
+                Liquidate(holding.Symbol);
+            }
+        }
+        
+        // Invest in securities in the universe with equal weight
+        var count = UniverseManager.ActiveSecurities.Count;
+        if (count == 0)
+            return;
+        
+        foreach (var kvp in UniverseManager.ActiveSecurities)
+        {
+            SetHoldings(kvp.Key, 1.0 / count);
+        }
+    }
+}
+```
+
+## Best Practices
+
+### 1. Start Simple
+
+Start with simple strategies and gradually add complexity as you gain experience. Simple strategies are easier to understand, implement, and debug.
+
+### 2. Test Thoroughly
+
+Test your strategies thoroughly using historical data before deploying them in a live environment. Use different time periods and market conditions to ensure robustness.
+
+### 3. Consider Transaction Costs
+
+Include transaction costs in your backtests to get a more realistic estimate of strategy performance. High-frequency strategies may not be profitable when transaction costs are considered.
+
+### 4. Manage Risk
+
+Implement proper risk management to protect your portfolio from significant drawdowns. This can include position sizing, stop-loss orders, and diversification.
+
+### 5. Monitor Performance
+
+Regularly monitor the performance of your strategies and make adjustments as needed. Market conditions change over time, and strategies that worked in the past may not work in the future.
+
 ## Next Steps
 
-For detailed information about each type of implementation example, refer to the individual documentation:
+For detailed information about each example category, refer to the individual category documentation:
 
 - [Basic Strategies](./basic-strategies.md)
 - [Advanced Strategies](./advanced-strategies.md)

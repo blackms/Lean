@@ -2,17 +2,11 @@
 
 ## Overview
 
-Alpha Models are a key component of the Algorithm Framework in QuantConnect Lean. They are responsible for generating trading signals, called "insights," based on market data. These insights are then used by Portfolio Construction Models to determine position sizes.
+Alpha Models are a key component of the Algorithm Framework in QuantConnect Lean. They are responsible for generating trading signals (insights) based on market data. Alpha Models analyze market data and produce predictions about future price movements, which are then used by Portfolio Construction Models to determine position sizes.
 
 ## What is an Alpha Model?
 
-An Alpha Model is a strategy for identifying potential trading opportunities. It analyzes market data and generates predictions about future price movements. These predictions are encapsulated in "Insight" objects, which specify:
-
-- The security (Symbol)
-- The direction (Up, Down, or Flat)
-- The forecast period (how long the prediction is valid)
-- The magnitude (strength of the prediction)
-- The confidence (certainty of the prediction)
+An Alpha Model is a component that generates trading signals, or "insights," based on market data. These insights represent predictions about future price movements and are used to make trading decisions. In the context of quantitative finance, "alpha" refers to excess returns relative to a benchmark, so an Alpha Model is essentially a model that aims to generate excess returns.
 
 ## Alpha Model Interface
 
@@ -28,32 +22,94 @@ public interface IAlphaModel
 
 ### Key Methods
 
-- `Update`: Called each time the algorithm receives new data. It analyzes the data and generates insights.
-- `OnSecuritiesChanged`: Called when the securities in the algorithm change. It allows the alpha model to initialize or clean up resources for securities.
+- `Update`: Generates insights based on the latest data
+- `OnSecuritiesChanged`: Handles changes to the securities in the algorithm
+
+## Insights
+
+Insights are the output of Alpha Models. They represent predictions about future price movements and have the following properties:
+
+- `Symbol`: The security symbol
+- `Direction`: The predicted direction (up, down, or flat)
+- `Magnitude`: The predicted magnitude of the move (optional)
+- `Confidence`: The confidence level of the prediction (optional)
+- `Period`: The time period over which the prediction is valid
+- `GeneratedTimeUtc`: The time when the insight was generated
+- `CloseTimeUtc`: The time when the insight expires
+- `Source`: The source of the insight (e.g., the Alpha Model that generated it)
+
+```mermaid
+classDiagram
+    class Insight {
+        +Symbol Symbol
+        +InsightDirection Direction
+        +double? Magnitude
+        +double? Confidence
+        +TimeSpan Period
+        +DateTime GeneratedTimeUtc
+        +DateTime CloseTimeUtc
+        +InsightSource Source
+        +InsightType Type
+        +InsightScore Score
+        +InsightState State
+        +Insight(Symbol, TimeSpan, InsightType, InsightDirection)
+        +Insight(Symbol, TimeSpan, InsightType, InsightDirection, double? magnitude)
+        +Insight(Symbol, TimeSpan, InsightType, InsightDirection, double? magnitude, double? confidence)
+    }
+    
+    class InsightDirection {
+        <<enumeration>>
+        Up
+        Down
+        Flat
+    }
+    
+    class InsightType {
+        <<enumeration>>
+        Price
+        Volatility
+    }
+    
+    class InsightSource {
+        <<enumeration>>
+        Manual
+        Algorithm
+        AlphaStreaming
+    }
+    
+    class InsightScore {
+        +double Direction
+        +double Magnitude
+        +double UpdatedTimeUtc
+        +double GetScore()
+    }
+    
+    class InsightState {
+        +bool WasClosed
+        +bool WasInvalidated
+        +DateTime? CloseTimeUtc
+    }
+    
+    Insight --> InsightDirection
+    Insight --> InsightType
+    Insight --> InsightSource
+    Insight --> InsightScore
+    Insight --> InsightState
+```
 
 ## Built-in Alpha Models
 
-QuantConnect Lean provides several built-in Alpha Models that can be used out of the box:
+Lean provides several built-in Alpha Models that can be used out of the box:
 
 ### 1. EmaCrossAlphaModel
 
-The EmaCrossAlphaModel generates insights based on Exponential Moving Average (EMA) crossovers. It uses two EMAs, a fast EMA and a slow EMA, and generates insights when they cross.
-
-```mermaid
-graph TD
-    A[Price Data] --> B[Fast EMA]
-    A --> C[Slow EMA]
-    B --> D{Fast > Slow?}
-    C --> D
-    D -->|Yes| E[Bullish Insight]
-    D -->|No| F[Bearish Insight]
-```
+The EmaCrossAlphaModel generates insights based on EMA (Exponential Moving Average) crossovers. It uses two EMAs with different periods and generates an up insight when the fast EMA crosses above the slow EMA, and a down insight when the fast EMA crosses below the slow EMA.
 
 #### Parameters
 
 - `fastPeriod`: The period of the fast EMA (default: 12)
 - `slowPeriod`: The period of the slow EMA (default: 26)
-- `resolution`: The resolution of data to use (default: Daily)
+- `resolution`: The resolution of the data (default: Daily)
 
 #### Example
 
@@ -69,64 +125,16 @@ var customEmaCross = new EmaCrossAlphaModel(
 );
 ```
 
-#### Implementation Details
-
-The EmaCrossAlphaModel maintains two EMA indicators for each security. When the fast EMA crosses above the slow EMA, it generates a bullish insight. When the fast EMA crosses below the slow EMA, it generates a bearish insight.
-
-```csharp
-public override IEnumerable<Insight> Update(QCAlgorithm algorithm, Slice data)
-{
-    var insights = new List<Insight>();
-    foreach (var symbolData in SymbolDataBySymbol.Values)
-    {
-        if (symbolData.Fast.IsReady && symbolData.Slow.IsReady)
-        {
-            var insightPeriod = _resolution.ToTimeSpan().Multiply(_predictionInterval);
-            if (symbolData.FastIsOverSlow)
-            {
-                if (symbolData.Slow > symbolData.Fast)
-                {
-                    insights.Add(Insight.Price(symbolData.Symbol, insightPeriod, InsightDirection.Down));
-                }
-            }
-            else if (symbolData.SlowIsOverFast)
-            {
-                if (symbolData.Fast > symbolData.Slow)
-                {
-                    insights.Add(Insight.Price(symbolData.Symbol, insightPeriod, InsightDirection.Up));
-                }
-            }
-        }
-
-        symbolData.FastIsOverSlow = symbolData.Fast > symbolData.Slow;
-    }
-
-    return insights;
-}
-```
-
 ### 2. MacdAlphaModel
 
-The MacdAlphaModel generates insights based on the Moving Average Convergence Divergence (MACD) indicator. It generates insights when the MACD line crosses the signal line.
-
-```mermaid
-graph TD
-    A[Price Data] --> B[MACD]
-    B --> C[MACD Line]
-    B --> D[Signal Line]
-    C --> E{MACD > Signal?}
-    D --> E
-    E -->|Yes| F[Bullish Insight]
-    E -->|No| G[Bearish Insight]
-```
+The MacdAlphaModel generates insights based on MACD (Moving Average Convergence Divergence) signals. It generates an up insight when the MACD line crosses above the signal line, and a down insight when the MACD line crosses below the signal line.
 
 #### Parameters
 
-- `fastPeriod`: The period of the fast EMA used in MACD calculation (default: 12)
-- `slowPeriod`: The period of the slow EMA used in MACD calculation (default: 26)
+- `fastPeriod`: The period of the fast EMA (default: 12)
+- `slowPeriod`: The period of the slow EMA (default: 26)
 - `signalPeriod`: The period of the signal line (default: 9)
-- `movingAverageType`: The type of moving average to use (default: ExponentialMovingAverage)
-- `resolution`: The resolution of data to use (default: Daily)
+- `resolution`: The resolution of the data (default: Daily)
 
 #### Example
 
@@ -139,32 +147,18 @@ var customMacd = new MacdAlphaModel(
     fastPeriod: 8,
     slowPeriod: 21,
     signalPeriod: 5,
-    movingAverageType: MovingAverageType.Simple,
     resolution: Resolution.Hour
 );
 ```
 
-#### Implementation Details
-
-The MacdAlphaModel maintains a MACD indicator for each security. When the MACD line crosses above the signal line, it generates a bullish insight. When the MACD line crosses below the signal line, it generates a bearish insight.
-
 ### 3. RsiAlphaModel
 
-The RsiAlphaModel generates insights based on the Relative Strength Index (RSI) indicator. It generates insights when the RSI crosses predefined overbought and oversold levels.
-
-```mermaid
-graph TD
-    A[Price Data] --> B[RSI]
-    B --> C{RSI > Overbought?}
-    B --> D{RSI < Oversold?}
-    C -->|Yes| E[Bearish Insight]
-    D -->|Yes| F[Bullish Insight]
-```
+The RsiAlphaModel generates insights based on RSI (Relative Strength Index) signals. It generates an up insight when the RSI crosses below the oversold threshold and then crosses back above it, and a down insight when the RSI crosses above the overbought threshold and then crosses back below it.
 
 #### Parameters
 
 - `period`: The period of the RSI (default: 14)
-- `resolution`: The resolution of data to use (default: Daily)
+- `resolution`: The resolution of the data (default: Daily)
 
 #### Example
 
@@ -179,20 +173,16 @@ var customRsi = new RsiAlphaModel(
 );
 ```
 
-#### Implementation Details
-
-The RsiAlphaModel maintains an RSI indicator for each security. When the RSI crosses above the overbought level (typically 70), it generates a bearish insight. When the RSI crosses below the oversold level (typically 30), it generates a bullish insight.
-
 ### 4. ConstantAlphaModel
 
-The ConstantAlphaModel generates constant insights for all securities. It's useful for testing and as a baseline for comparison.
+The ConstantAlphaModel generates constant insights for all securities in the universe. It's useful for testing other components of the Algorithm Framework.
 
 #### Parameters
 
-- `direction`: The direction of the insights (default: InsightDirection.Up)
+- `direction`: The direction of the insights (default: Up)
 - `magnitude`: The magnitude of the insights (default: null)
-- `confidence`: The confidence of the insights (default: null)
-- `period`: The period of the insights (default: TimeSpan.FromDays(1))
+- `confidence`: The confidence level of the insights (default: null)
+- `period`: The period of the insights (default: 1 day)
 
 #### Example
 
@@ -203,35 +193,20 @@ var constant = new ConstantAlphaModel();
 // Create a Constant Alpha Model with custom parameters
 var customConstant = new ConstantAlphaModel(
     direction: InsightDirection.Down,
-    magnitude: 0.1m,
-    confidence: 0.8m,
+    magnitude: 0.1,
+    confidence: 0.8,
     period: TimeSpan.FromHours(4)
 );
 ```
 
-#### Implementation Details
-
-The ConstantAlphaModel generates the same insight for all securities in the algorithm. It's primarily used for testing and as a baseline for comparison.
-
 ### 5. HistoricalReturnsAlphaModel
 
-The HistoricalReturnsAlphaModel generates insights based on historical returns. It assumes that securities with high historical returns will continue to perform well, and vice versa.
-
-```mermaid
-graph TD
-    A[Price Data] --> B[Calculate Returns]
-    B --> C[Rank Securities]
-    C --> D[Top N Securities]
-    C --> E[Bottom N Securities]
-    D --> F[Bullish Insights]
-    E --> G[Bearish Insights]
-```
+The HistoricalReturnsAlphaModel generates insights based on historical returns. It calculates the historical return over a specified period and generates an insight with the same direction as the historical return.
 
 #### Parameters
 
-- `lookback`: The number of periods to look back (default: 1)
-- `resolution`: The resolution of data to use (default: Daily)
-- `numberOfInsights`: The number of insights to generate (default: null, which means all securities)
+- `period`: The period over which to calculate historical returns (default: 1 day)
+- `resolution`: The resolution of the data (default: Daily)
 
 #### Example
 
@@ -241,54 +216,62 @@ var historicalReturns = new HistoricalReturnsAlphaModel();
 
 // Create a Historical Returns Alpha Model with custom parameters
 var customHistoricalReturns = new HistoricalReturnsAlphaModel(
-    lookback: 5,
-    resolution: Resolution.Hour,
-    numberOfInsights: 10
+    period: TimeSpan.FromDays(5),
+    resolution: Resolution.Hour
 );
 ```
 
-#### Implementation Details
-
-The HistoricalReturnsAlphaModel calculates the returns of each security over the lookback period. It then ranks the securities by their returns and generates bullish insights for the top performers and bearish insights for the bottom performers.
-
 ### 6. PearsonCorrelationPairsTradingAlphaModel
 
-The PearsonCorrelationPairsTradingAlphaModel generates insights based on pairs trading. It identifies pairs of securities that are historically correlated and generates insights when their relationship deviates from the norm.
-
-```mermaid
-graph TD
-    A[Price Data] --> B[Calculate Correlation]
-    B --> C[Calculate Spread]
-    C --> D[Calculate Z-Score]
-    D --> E{Z-Score > Threshold?}
-    D --> F{Z-Score < -Threshold?}
-    E -->|Yes| G[Short High, Long Low]
-    F -->|Yes| H[Long High, Short Low]
-```
+The PearsonCorrelationPairsTradingAlphaModel generates insights based on pairs trading. It calculates the correlation between pairs of securities and generates insights when the spread between them deviates significantly from its mean.
 
 #### Parameters
 
-- `lookback`: The number of periods to look back for correlation calculation (default: 30)
-- `resolution`: The resolution of data to use (default: Daily)
-- `threshold`: The z-score threshold for generating insights (default: 1.0)
+- `lookback`: The lookback period for calculating correlation (default: 30 days)
+- `resolution`: The resolution of the data (default: Daily)
+- `threshold`: The threshold for generating insights (default: 1.0)
 
 #### Example
 
 ```csharp
-// Create a Pairs Trading Alpha Model with default parameters
-var pairsTrading = new PearsonCorrelationPairsTradingAlphaModel();
+// Create a Pearson Correlation Pairs Trading Alpha Model with default parameters
+var pairsTradingAlpha = new PearsonCorrelationPairsTradingAlphaModel();
 
-// Create a Pairs Trading Alpha Model with custom parameters
-var customPairsTrading = new PearsonCorrelationPairsTradingAlphaModel(
-    lookback: 60,
+// Create a Pearson Correlation Pairs Trading Alpha Model with custom parameters
+var customPairsTradingAlpha = new PearsonCorrelationPairsTradingAlphaModel(
+    lookback: TimeSpan.FromDays(60),
     resolution: Resolution.Hour,
     threshold: 2.0
 );
 ```
 
-#### Implementation Details
+## Composite Alpha Model
 
-The PearsonCorrelationPairsTradingAlphaModel calculates the correlation between pairs of securities. For highly correlated pairs, it calculates the spread between them and the z-score of the spread. When the z-score exceeds the threshold, it generates insights to short the higher-priced security and long the lower-priced security, or vice versa.
+The CompositeAlphaModel allows you to combine multiple Alpha Models into a single model. It aggregates the insights from all the constituent models.
+
+```mermaid
+graph TD
+    A[CompositeAlphaModel] --> B[EmaCrossAlphaModel]
+    A --> C[MacdAlphaModel]
+    A --> D[RsiAlphaModel]
+    
+    B --> E[Insights]
+    C --> E
+    D --> E
+    
+    E --> F[Aggregated Insights]
+```
+
+### Example
+
+```csharp
+// Create a Composite Alpha Model with multiple constituent models
+var composite = new CompositeAlphaModel(
+    new EmaCrossAlphaModel(),
+    new MacdAlphaModel(),
+    new RsiAlphaModel()
+);
+```
 
 ## Creating Custom Alpha Models
 
@@ -298,97 +281,159 @@ You can create custom Alpha Models by inheriting from the `AlphaModel` base clas
 public class MyAlphaModel : AlphaModel
 {
     private readonly Dictionary<Symbol, SymbolData> _symbolData;
-
+    
     public MyAlphaModel()
     {
         _symbolData = new Dictionary<Symbol, SymbolData>();
         Name = nameof(MyAlphaModel);
     }
-
+    
     public override IEnumerable<Insight> Update(QCAlgorithm algorithm, Slice data)
     {
         var insights = new List<Insight>();
+        
         foreach (var kvp in _symbolData)
         {
             var symbol = kvp.Key;
             var symbolData = kvp.Value;
             
-            // Your custom logic to generate insights
-            if (/* your condition */)
+            if (symbolData.Indicator.IsReady)
             {
-                insights.Add(Insight.Price(symbol, TimeSpan.FromDays(1), InsightDirection.Up));
-            }
-            else if (/* your condition */)
-            {
-                insights.Add(Insight.Price(symbol, TimeSpan.FromDays(1), InsightDirection.Down));
+                var direction = symbolData.Indicator.Current.Value > 0 
+                    ? InsightDirection.Up 
+                    : InsightDirection.Down;
+                
+                insights.Add(Insight.Price(
+                    symbol,
+                    TimeSpan.FromDays(1),
+                    direction,
+                    magnitude: Math.Abs(symbolData.Indicator.Current.Value),
+                    confidence: 0.8
+                ));
             }
         }
+        
         return insights;
     }
-
+    
     public override void OnSecuritiesChanged(QCAlgorithm algorithm, SecurityChanges changes)
     {
+        // Initialize resources for added securities
         foreach (var security in changes.AddedSecurities)
         {
             _symbolData[security.Symbol] = new SymbolData(security.Symbol, algorithm);
         }
+        
+        // Clean up resources for removed securities
         foreach (var security in changes.RemovedSecurities)
         {
             _symbolData.Remove(security.Symbol);
         }
     }
-
+    
     private class SymbolData
     {
         public Symbol Symbol { get; }
-        // Your custom indicators or data
-
+        public CustomIndicator Indicator { get; }
+        
         public SymbolData(Symbol symbol, QCAlgorithm algorithm)
         {
             Symbol = symbol;
-            // Initialize your custom indicators or data
+            Indicator = new CustomIndicator(symbol.Value);
+            algorithm.RegisterIndicator(symbol, Indicator, Resolution.Daily);
+        }
+    }
+    
+    private class CustomIndicator : IndicatorBase<IndicatorDataPoint>
+    {
+        public CustomIndicator(string name) : base(name)
+        {
+        }
+        
+        protected override decimal ComputeNextValue(IndicatorDataPoint input)
+        {
+            // Custom indicator logic
+            return input.Value;
         }
     }
 }
 ```
 
-## Composite Alpha Model
+## Alpha Model in the Algorithm Framework
 
-The CompositeAlphaModel allows you to combine multiple Alpha Models into a single model. This is useful for creating more robust strategies that use multiple signals.
+To use an Alpha Model in the Algorithm Framework, you need to set it up in your algorithm's `Initialize` method:
 
 ```csharp
-// Create a Composite Alpha Model with multiple Alpha Models
-var composite = new CompositeAlphaModel(
-    new EmaCrossAlphaModel(),
-    new RsiAlphaModel(),
-    new MacdAlphaModel()
-);
+public class MyAlgorithm : QCAlgorithm
+{
+    public override void Initialize()
+    {
+        SetStartDate(2018, 1, 1);
+        SetEndDate(2018, 12, 31);
+        SetCash(100000);
+        
+        // Set up the universe selection model
+        SetUniverseSelection(new ManualUniverseSelectionModel(
+            new[] { "AAPL", "MSFT", "GOOG" }.Select(x => QuantConnect.Symbol.Create(x, SecurityType.Equity, Market.USA)).ToArray()
+        ));
+        
+        // Set up the alpha model
+        SetAlpha(new EmaCrossAlphaModel());
+        
+        // Set up the rest of the framework
+        SetPortfolioConstruction(new EqualWeightingPortfolioConstructionModel());
+        SetExecution(new ImmediateExecutionModel());
+        SetRiskManagement(new NullRiskManagementModel());
+    }
+}
 ```
 
-The CompositeAlphaModel calls the `Update` method of each constituent Alpha Model and combines their insights. By default, it simply concatenates the insights from all models, but you can customize this behavior by overriding the `CombineInsights` method.
+## Alpha Model Workflow
+
+The Alpha Model workflow typically involves the following steps:
+
+1. **Initialize**: The Alpha Model is initialized when the algorithm starts.
+2. **OnSecuritiesChanged**: When the universe changes, the Alpha Model is notified through the `OnSecuritiesChanged` method. This allows it to initialize or clean up resources for securities.
+3. **Update**: For each data slice, the Alpha Model's `Update` method is called to generate insights.
+4. **Insight Processing**: The generated insights are processed by the Portfolio Construction Model to determine position sizes.
+
+```mermaid
+sequenceDiagram
+    participant A as Algorithm
+    participant AM as AlphaModel
+    participant PCM as PortfolioConstructionModel
+    
+    A->>AM: Initialize()
+    A->>AM: OnSecuritiesChanged(changes)
+    loop For each data slice
+        A->>AM: Update(algorithm, slice)
+        AM->>A: Return insights
+        A->>PCM: CreateTargets(algorithm, insights)
+    end
+```
 
 ## Best Practices
 
-### 1. Use Appropriate Time Frames
+### 1. Keep Alpha Models Simple
 
-Choose the right time frame for your Alpha Model based on your trading strategy. Shorter time frames are suitable for high-frequency trading, while longer time frames are better for swing trading or position trading.
+Simple Alpha Models are often more robust and less prone to overfitting than complex ones. Start with simple models and add complexity only if necessary.
 
-### 2. Combine Multiple Signals
+### 2. Test with Different Parameters
 
-Use the CompositeAlphaModel to combine multiple signals for more robust strategies. This can help reduce false signals and improve performance.
+Test your Alpha Models with different parameters to ensure they are robust and not overly sensitive to parameter changes.
 
-### 3. Consider Market Conditions
+### 3. Consider Multiple Time Frames
 
-Different Alpha Models perform better in different market conditions. Consider using adaptive strategies that switch between Alpha Models based on market conditions.
+Consider using multiple time frames in your Alpha Models to capture different market dynamics.
 
-### 4. Backtest Thoroughly
+### 4. Combine Multiple Alpha Models
 
-Backtest your Alpha Models thoroughly to ensure they perform well in different market conditions. Use the Lean backtesting engine to test your models over different time periods and with different securities.
+Combine multiple Alpha Models using the CompositeAlphaModel to diversify your signal sources.
 
-### 5. Monitor Performance
+### 5. Include Confidence and Magnitude
 
-Monitor the performance of your Alpha Models in live trading. Keep track of metrics such as win rate, profit factor, and drawdown to ensure your models are performing as expected.
+Include confidence and magnitude in your insights to provide more information to the Portfolio Construction Model.
 
 ## Conclusion
 
-Alpha Models are a key component of the Algorithm Framework in QuantConnect Lean. They generate trading signals based on market data, which are then used by Portfolio Construction Models to determine position sizes. By understanding and effectively using Alpha Models, you can create more robust and profitable trading strategies.
+Alpha Models are a critical component of the Algorithm Framework in QuantConnect Lean. They generate trading signals (insights) based on market data, which are then used by Portfolio Construction Models to determine position sizes. By understanding and effectively using Alpha Models, you can create more robust and efficient trading strategies.

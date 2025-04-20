@@ -2,212 +2,377 @@
 
 ## Overview
 
-This section provides detailed documentation on the operational aspects of QuantConnect Lean. It covers deployment, maintenance, and monitoring of Lean algorithms in various environments, from local development to cloud-based production systems.
+This section provides detailed documentation on the operational aspects of QuantConnect Lean. It covers deployment, maintenance, monitoring, and other operational considerations for running algorithmic trading strategies in production.
 
-## Deployment
+## Operational Components
 
-Deploying Lean algorithms involves setting up the environment, configuring the system, and launching the algorithm. Lean supports multiple deployment targets, from local development to cloud-based production systems.
+```mermaid
+graph TD
+    A[Operational Aspects] --> B[Deployment]
+    A --> C[Maintenance]
+    A --> D[Monitoring]
+    
+    B --> B1[Local Deployment]
+    B --> B2[Cloud Deployment]
+    B --> B3[Live Trading]
+    
+    C --> C1[Updates]
+    C --> C2[Data Management]
+    C --> C3[Configuration]
+    
+    D --> D1[Performance Monitoring]
+    D --> D2[Error Handling]
+    D --> D3[Logging]
+```
 
-### 1. Local Deployment
+### 1. Deployment
 
-Local deployment is used for development and testing. It involves running Lean on your local machine.
-
-Key aspects:
-- **Environment Setup**: Installing dependencies and configuring the local environment
-- **Configuration**: Setting up configuration files for backtesting and live trading
-- **Data Management**: Managing local data storage and retrieval
-- **Execution**: Running algorithms locally for backtesting and live trading
+Deployment covers the process of setting up and running Lean in different environments, including local development, cloud-based backtesting, and live trading.
 
 [Learn more about Deployment](./deployment.md)
 
-### 2. Cloud Deployment
+### 2. Maintenance
 
-Cloud deployment is used for production systems. It involves running Lean on cloud infrastructure, such as AWS, Azure, or Google Cloud.
-
-Key aspects:
-- **Infrastructure as Code**: Defining cloud infrastructure using tools like Terraform or CloudFormation
-- **Containerization**: Packaging Lean and algorithms in containers using Docker
-- **Orchestration**: Managing containers using Kubernetes or other orchestration tools
-- **Scaling**: Scaling resources based on demand
-- **Security**: Securing cloud infrastructure and data
-
-### 3. QuantConnect Cloud
-
-QuantConnect provides a cloud platform for deploying Lean algorithms without managing infrastructure.
-
-Key aspects:
-- **Algorithm Submission**: Submitting algorithms to the QuantConnect cloud
-- **Backtesting**: Running backtests on the QuantConnect cloud
-- **Live Trading**: Deploying algorithms for live trading on the QuantConnect cloud
-- **Monitoring**: Monitoring algorithm performance on the QuantConnect cloud
-
-## Maintenance
-
-Maintaining Lean algorithms involves updating the system, managing data, and ensuring the continued operation of algorithms.
-
-### 1. System Updates
-
-Keeping the Lean system up to date is essential for security and performance.
-
-Key aspects:
-- **Lean Updates**: Updating the Lean engine to the latest version
-- **Dependency Updates**: Updating dependencies and libraries
-- **Algorithm Updates**: Updating algorithms to work with the latest Lean version
-- **Data Updates**: Updating market data and other data sources
+Maintenance covers the ongoing tasks required to keep Lean running smoothly, including updates, data management, and configuration.
 
 [Learn more about Maintenance](./maintenance.md)
 
-### 2. Data Management
+### 3. Monitoring
 
-Managing data is a critical aspect of maintaining Lean algorithms.
-
-Key aspects:
-- **Data Storage**: Managing data storage and retrieval
-- **Data Quality**: Ensuring data quality and consistency
-- **Data Updates**: Updating data sources and handling data gaps
-- **Custom Data**: Managing custom data sources
-
-### 3. Algorithm Management
-
-Managing algorithms involves tracking performance, making adjustments, and ensuring continued operation.
-
-Key aspects:
-- **Performance Tracking**: Monitoring algorithm performance over time
-- **Parameter Adjustments**: Adjusting algorithm parameters based on performance
-- **Error Handling**: Handling errors and exceptions in algorithms
-- **Version Control**: Managing algorithm versions and changes
-
-## Monitoring
-
-Monitoring Lean algorithms involves tracking performance, detecting issues, and responding to alerts.
-
-### 1. Performance Monitoring
-
-Tracking the performance of Lean algorithms is essential for ensuring they meet expectations.
-
-Key aspects:
-- **Performance Metrics**: Tracking key performance metrics such as returns, drawdowns, and Sharpe ratio
-- **Benchmark Comparison**: Comparing algorithm performance to benchmarks
-- **Historical Analysis**: Analyzing performance over different time periods
-- **Attribution Analysis**: Identifying the sources of performance
+Monitoring covers the tools and techniques for tracking the performance and health of Lean and the trading strategies it runs.
 
 [Learn more about Monitoring](./monitoring.md)
 
-### 2. System Monitoring
+## Deployment Options
 
-Monitoring the Lean system ensures it operates correctly and efficiently.
+Lean can be deployed in several different environments:
 
-Key aspects:
-- **Resource Usage**: Monitoring CPU, memory, and disk usage
-- **Network Performance**: Monitoring network latency and throughput
-- **Error Rates**: Tracking error rates and types
-- **System Logs**: Analyzing system logs for issues
+### 1. Local Development
 
-### 3. Alerting
+Local development involves running Lean on your local machine for development and testing purposes.
 
-Setting up alerts helps detect and respond to issues quickly.
+#### Requirements
 
-Key aspects:
-- **Alert Configuration**: Setting up alerts for various metrics and conditions
-- **Alert Channels**: Configuring alert delivery through email, SMS, or other channels
-- **Alert Thresholds**: Setting appropriate thresholds for different alerts
-- **Alert Response**: Developing procedures for responding to alerts
+- Windows, macOS, or Linux operating system
+- .NET Core SDK
+- Python (optional, for Python algorithms)
+- IDE (Visual Studio, VS Code, etc.)
 
-## Disaster Recovery
+#### Setup
 
-Preparing for and recovering from disasters is an important aspect of operating Lean algorithms.
+1. Clone the Lean repository:
+   ```bash
+   git clone https://github.com/QuantConnect/Lean.git
+   ```
 
-### 1. Backup and Recovery
+2. Build the solution:
+   ```bash
+   cd Lean
+   dotnet build
+   ```
 
-Regular backups and recovery procedures ensure data and algorithms can be restored in case of failure.
+3. Configure Lean:
+   - Edit `config.json` to set up data sources, algorithm selection, etc.
 
-Key aspects:
-- **Data Backups**: Backing up market data and other data sources
-- **Algorithm Backups**: Backing up algorithm code and configurations
-- **System Backups**: Backing up system configurations and state
-- **Recovery Procedures**: Developing and testing recovery procedures
+4. Run Lean:
+   ```bash
+   cd Launcher/bin/Debug
+   dotnet QuantConnect.Lean.Launcher.dll
+   ```
 
-### 2. High Availability
+### 2. Docker
 
-High availability configurations ensure algorithms continue to operate even if some components fail.
+Docker provides a containerized environment for running Lean, ensuring consistency across different machines and environments.
 
-Key aspects:
-- **Redundancy**: Setting up redundant components and systems
-- **Failover**: Configuring automatic failover to backup systems
-- **Load Balancing**: Distributing load across multiple systems
-- **Geographic Distribution**: Distributing systems across multiple geographic regions
+#### Requirements
 
-### 3. Business Continuity
+- Docker installed on your machine
 
-Business continuity planning ensures algorithms continue to operate during disruptions.
+#### Setup
 
-Key aspects:
-- **Continuity Planning**: Developing plans for various disruption scenarios
-- **Testing**: Regularly testing continuity plans
-- **Communication**: Establishing communication procedures during disruptions
-- **Recovery Time Objectives**: Setting targets for recovery time
+1. Clone the Lean repository:
+   ```bash
+   git clone https://github.com/QuantConnect/Lean.git
+   ```
 
-## Security
+2. Build the Docker image:
+   ```bash
+   cd Lean
+   docker build -t lean .
+   ```
 
-Securing Lean algorithms and infrastructure is essential for protecting sensitive data and ensuring reliable operation.
+3. Run Lean in a Docker container:
+   ```bash
+   docker run -it --name lean lean
+   ```
 
-### 1. Authentication and Authorization
+### 3. Cloud Deployment
 
-Controlling access to Lean systems and data is a fundamental security measure.
+Cloud deployment involves running Lean on cloud infrastructure, such as AWS, Azure, or Google Cloud.
 
-Key aspects:
-- **User Authentication**: Verifying user identities
-- **Role-Based Access Control**: Assigning permissions based on roles
-- **API Security**: Securing API access
-- **Multi-Factor Authentication**: Requiring multiple forms of authentication
+#### Requirements
 
-### 2. Data Security
+- Cloud provider account (AWS, Azure, Google Cloud, etc.)
+- Knowledge of cloud infrastructure and deployment
 
-Protecting data at rest and in transit is essential for maintaining confidentiality and integrity.
+#### Setup
 
-Key aspects:
-- **Encryption**: Encrypting sensitive data
-- **Data Classification**: Classifying data based on sensitivity
-- **Data Access Controls**: Controlling access to data
-- **Data Retention**: Managing data retention and deletion
+1. Set up cloud infrastructure:
+   - Virtual machines or containers for running Lean
+   - Storage for data and results
+   - Networking for communication
 
-### 3. Network Security
+2. Deploy Lean to the cloud:
+   - Use infrastructure as code (Terraform, CloudFormation, etc.) to define and deploy infrastructure
+   - Use continuous integration/continuous deployment (CI/CD) pipelines to automate deployment
 
-Securing network communications protects against unauthorized access and data breaches.
+3. Configure Lean for cloud operation:
+   - Set up cloud-specific configuration (storage, authentication, etc.)
+   - Configure monitoring and logging
 
-Key aspects:
-- **Firewalls**: Configuring firewalls to restrict network access
-- **VPNs**: Using VPNs for secure remote access
-- **Intrusion Detection**: Monitoring for unauthorized access attempts
-- **Network Segmentation**: Separating networks for different purposes
+### 4. QuantConnect Cloud
 
-## Compliance
+QuantConnect provides a cloud-based platform for developing, backtesting, and deploying algorithmic trading strategies using Lean.
 
-Ensuring compliance with regulations and policies is important for operating Lean algorithms legally and ethically.
+#### Requirements
 
-### 1. Regulatory Compliance
+- QuantConnect account
 
-Adhering to financial regulations is essential for operating trading algorithms.
+#### Setup
 
-Key aspects:
-- **Market Regulations**: Complying with market regulations
-- **Trading Rules**: Following exchange trading rules
-- **Reporting Requirements**: Meeting regulatory reporting requirements
-- **Audit Trails**: Maintaining audit trails for compliance purposes
+1. Sign up for a QuantConnect account at [quantconnect.com](https://www.quantconnect.com).
 
-### 2. Internal Compliance
+2. Create a new algorithm in the QuantConnect web IDE.
 
-Adhering to internal policies and procedures ensures consistent and controlled operation.
+3. Develop and backtest your algorithm using the web IDE.
 
-Key aspects:
-- **Policy Enforcement**: Enforcing internal policies
-- **Change Management**: Managing changes to algorithms and systems
-- **Risk Limits**: Setting and enforcing risk limits
-- **Approval Processes**: Following approval processes for algorithm deployment
+4. Deploy your algorithm to live trading through the QuantConnect platform.
+
+## Live Trading
+
+Live trading involves running Lean with real money in a production environment.
+
+### Supported Brokerages
+
+Lean supports several brokerages for live trading:
+
+- Interactive Brokers
+- OANDA
+- Bitfinex
+- Coinbase Pro
+- Binance
+- Alpaca
+- FXCM
+- Tradier
+- And more...
+
+### Setting Up Live Trading
+
+1. Configure brokerage credentials:
+   - Edit `config.json` to set up brokerage-specific configuration
+   - Set API keys, account IDs, etc.
+
+2. Configure live trading mode:
+   ```json
+   "environment": "live",
+   "live-mode": true
+   ```
+
+3. Run Lean in live trading mode:
+   ```bash
+   cd Launcher/bin/Debug
+   dotnet QuantConnect.Lean.Launcher.dll
+   ```
+
+## Maintenance
+
+Maintaining a Lean deployment involves several ongoing tasks:
+
+### 1. Updates
+
+Keeping Lean and its dependencies up to date is important for security, performance, and access to new features.
+
+#### Updating Lean
+
+1. Pull the latest changes from the repository:
+   ```bash
+   git pull origin master
+   ```
+
+2. Rebuild the solution:
+   ```bash
+   dotnet build
+   ```
+
+#### Updating Dependencies
+
+1. Update NuGet packages:
+   ```bash
+   dotnet restore
+   ```
+
+2. Update Python packages (if using Python algorithms):
+   ```bash
+   pip install -r requirements.txt --upgrade
+   ```
+
+### 2. Data Management
+
+Managing market data is a critical aspect of maintaining a Lean deployment.
+
+#### Data Sources
+
+Lean supports several data sources:
+
+- QuantConnect Data Library
+- Interactive Brokers
+- OANDA
+- Custom data sources
+
+#### Data Storage
+
+Market data can be stored in different formats:
+
+- Local file system
+- Cloud storage (S3, Azure Blob Storage, etc.)
+- Databases
+
+#### Data Updates
+
+Market data needs to be regularly updated to include the latest information:
+
+1. Download new data:
+   ```bash
+   python ToolBox/DataDownloader.py --symbols SPY --resolution Minute --from-date 2020-01-01
+   ```
+
+2. Process and store the data:
+   ```bash
+   python ToolBox/DataProcessor.py --symbols SPY --resolution Minute
+   ```
+
+### 3. Configuration
+
+Maintaining proper configuration is essential for the correct operation of Lean.
+
+#### Configuration Files
+
+Lean uses several configuration files:
+
+- `config.json`: Main configuration file
+- `market-hours.json`: Market hours configuration
+- `symbol-properties.csv`: Symbol properties configuration
+
+#### Configuration Management
+
+Best practices for configuration management include:
+
+- Version control for configuration files
+- Environment-specific configurations
+- Secure storage of sensitive information (API keys, etc.)
+
+## Monitoring
+
+Monitoring a Lean deployment involves tracking its performance, health, and the performance of the trading strategies it runs.
+
+### 1. Performance Monitoring
+
+Tracking the performance of trading strategies is essential for evaluating their effectiveness.
+
+#### Performance Metrics
+
+Key performance metrics include:
+
+- Returns (absolute, relative, annualized)
+- Drawdowns (maximum, average, duration)
+- Sharpe ratio, Sortino ratio, and other risk-adjusted metrics
+- Win rate, profit factor, and other trading metrics
+
+#### Performance Tracking Tools
+
+Tools for tracking performance include:
+
+- Lean's built-in performance reporting
+- Custom performance dashboards
+- Third-party analytics platforms
+
+### 2. Error Handling
+
+Proper error handling is critical for maintaining the reliability of a Lean deployment.
+
+#### Error Types
+
+Common error types include:
+
+- Algorithm errors (bugs in trading logic)
+- Data errors (missing or incorrect data)
+- System errors (hardware or software failures)
+- Brokerage errors (connectivity issues, order rejections)
+
+#### Error Handling Strategies
+
+Strategies for handling errors include:
+
+- Graceful degradation
+- Automatic retries
+- Fallback mechanisms
+- Alert systems
+
+### 3. Logging
+
+Comprehensive logging is essential for debugging issues and understanding system behavior.
+
+#### Log Levels
+
+Lean uses several log levels:
+
+- Debug: Detailed information for debugging
+- Information: General information about system operation
+- Warning: Potential issues that don't prevent operation
+- Error: Issues that prevent normal operation
+- Fatal: Critical issues that require immediate attention
+
+#### Logging Configuration
+
+Configuring logging involves:
+
+- Setting appropriate log levels
+- Configuring log destinations (console, file, database, etc.)
+- Setting up log rotation and retention policies
+
+#### Log Analysis
+
+Analyzing logs involves:
+
+- Searching for specific events or patterns
+- Aggregating and visualizing log data
+- Setting up alerts for specific log events
+
+## Best Practices
+
+### 1. Automation
+
+Automate as many operational tasks as possible to reduce manual effort and the potential for errors.
+
+### 2. Monitoring and Alerting
+
+Set up comprehensive monitoring and alerting to quickly identify and respond to issues.
+
+### 3. Disaster Recovery
+
+Develop and test disaster recovery plans to ensure business continuity in case of system failures.
+
+### 4. Security
+
+Implement strong security measures to protect sensitive information and prevent unauthorized access.
+
+### 5. Documentation
+
+Maintain comprehensive documentation of the operational setup, procedures, and troubleshooting guides.
 
 ## Next Steps
 
-For detailed information about each operational aspect, refer to the individual documentation:
+For detailed information about each operational aspect, refer to the individual component documentation:
 
 - [Deployment](./deployment.md)
 - [Maintenance](./maintenance.md)

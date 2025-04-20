@@ -2,86 +2,59 @@
 
 ## Overview
 
-This section provides detailed documentation on implementing trading strategies in QuantConnect Lean. It covers the various components of the Algorithm Framework and how they can be used to create effective trading strategies.
+This section provides detailed documentation on implementing trading strategies in QuantConnect Lean. It covers the various components of the Algorithm Framework that are used to build trading strategies, including Alpha Models, Portfolio Construction, Execution Models, and Universe Selection.
 
 ## Strategy Components
 
-A complete trading strategy in Lean typically consists of the following components:
+```mermaid
+graph TD
+    A[Trading Strategy] --> B[Universe Selection]
+    A --> C[Alpha Model]
+    A --> D[Portfolio Construction]
+    A --> E[Execution Model]
+    A --> F[Risk Management]
+    
+    B[Universe Selection] --> B1[Select assets to trade]
+    C[Alpha Model] --> C1[Generate trading signals]
+    D[Portfolio Construction] --> D1[Determine position sizes]
+    E[Execution Model] --> E1[Execute trades]
+    F[Risk Management] --> F1[Control risk]
+```
 
-1. **Alpha Models**: Generate trading signals (insights) based on market data
-2. **Portfolio Construction Models**: Determine position sizes based on insights
-3. **Execution Models**: Convert target portfolios into orders
-4. **Risk Management Models**: Apply risk controls to orders
-5. **Universe Selection Models**: Select assets to trade
+### 1. Universe Selection
 
-Each of these components can be customized to create a wide variety of trading strategies.
-
-## Strategy Implementation Patterns
-
-### 1. Trend Following
-
-Trend following strategies aim to capture price movements in a particular direction. They typically use technical indicators to identify trends and generate signals when the trend changes.
-
-Key components:
-- **Alpha Models**: Moving average crossovers, breakouts, momentum indicators
-- **Portfolio Construction**: Equal weighting or volatility-adjusted weighting
-- **Execution**: Immediate execution or scaled execution
-- **Risk Management**: Trailing stops, maximum drawdown limits
-
-[Learn more about Alpha Models](./alpha-models.md)
-
-### 2. Mean Reversion
-
-Mean reversion strategies assume that prices will revert to their mean over time. They generate signals when prices deviate significantly from their historical average.
-
-Key components:
-- **Alpha Models**: RSI, Bollinger Bands, statistical arbitrage
-- **Portfolio Construction**: Equal weighting or mean-variance optimization
-- **Execution**: Limit orders or scaled execution
-- **Risk Management**: Stop losses, maximum position sizes
-
-[Learn more about Portfolio Construction](./portfolio-construction.md)
-
-### 3. Statistical Arbitrage
-
-Statistical arbitrage strategies identify pairs or groups of securities that have historically moved together and generate signals when their relationship deviates from the norm.
-
-Key components:
-- **Alpha Models**: Pairs trading, cointegration, correlation
-- **Portfolio Construction**: Market-neutral weighting
-- **Execution**: Limit orders or VWAP execution
-- **Risk Management**: Correlation limits, maximum drawdown limits
-
-[Learn more about Execution Models](./execution-models.md)
-
-### 4. Factor Investing
-
-Factor investing strategies select securities based on specific factors such as value, momentum, quality, or size.
-
-Key components:
-- **Alpha Models**: Factor scoring, multi-factor ranking
-- **Portfolio Construction**: Factor-weighted allocation
-- **Execution**: Rebalancing at specific intervals
-- **Risk Management**: Factor exposure limits, sector exposure limits
+Universe Selection is responsible for selecting the securities that the algorithm will trade. It defines the investment universe - the set of assets that your algorithm can potentially trade.
 
 [Learn more about Universe Selection](./universe-selection.md)
 
-### 5. Event-Driven
+### 2. Alpha Models
 
-Event-driven strategies generate signals based on specific events such as earnings announcements, economic releases, or corporate actions.
+Alpha Models are responsible for generating trading signals (insights) based on market data. They analyze market data and produce predictions about future price movements.
 
-Key components:
-- **Alpha Models**: Event detection, news sentiment analysis
-- **Portfolio Construction**: Event-specific weighting
-- **Execution**: Immediate execution or scheduled execution
-- **Risk Management**: Event-specific risk controls
+[Learn more about Alpha Models](./alpha-models.md)
 
-## Implementation Examples
+### 3. Portfolio Construction
 
-### Basic Trend Following Strategy
+Portfolio Construction is responsible for determining position sizes based on insights. It converts the qualitative and quantitative predictions from Alpha Models into target portfolio weights.
+
+[Learn more about Portfolio Construction](./portfolio-construction.md)
+
+### 4. Execution Models
+
+Execution Models are responsible for converting portfolio targets into orders. They determine how to execute trades to achieve the target portfolio, considering factors like market impact, timing, and transaction costs.
+
+[Learn more about Execution Models](./execution-models.md)
+
+## Strategy Implementation Patterns
+
+There are several patterns for implementing trading strategies in Lean:
+
+### 1. Algorithm Framework
+
+The Algorithm Framework is a structured approach to building trading strategies, separating concerns into distinct components. This is the recommended approach for most strategies.
 
 ```csharp
-public class TrendFollowingAlgorithm : QCAlgorithm
+public class MyAlgorithm : QCAlgorithm
 {
     public override void Initialize()
     {
@@ -89,226 +62,136 @@ public class TrendFollowingAlgorithm : QCAlgorithm
         SetEndDate(2018, 12, 31);
         SetCash(100000);
         
-        // Universe Selection: S&P 500 stocks
-        SetUniverseSelection(new CoarseFundamentalUniverseSelectionModel(
-            coarse => coarse
-                .OrderByDescending(x => x.DollarVolume)
-                .Take(500)
-                .Select(x => x.Symbol)
-        ));
+        // Set up the universe selection model
+        SetUniverseSelection(new MyUniverseSelectionModel());
         
-        // Alpha Model: EMA Cross
-        SetAlpha(new EmaCrossAlphaModel(
-            fastPeriod: 12,
-            slowPeriod: 26,
-            resolution: Resolution.Daily
-        ));
+        // Set up the alpha model
+        SetAlpha(new MyAlphaModel());
         
-        // Portfolio Construction: Equal Weighting
-        SetPortfolioConstruction(new EqualWeightingPortfolioConstructionModel());
+        // Set up the portfolio construction model
+        SetPortfolioConstruction(new MyPortfolioConstructionModel());
         
-        // Execution: Immediate Execution
-        SetExecution(new ImmediateExecutionModel());
+        // Set up the execution model
+        SetExecution(new MyExecutionModel());
         
-        // Risk Management: Maximum Drawdown
-        SetRiskManagement(new MaximumDrawdownPercentPerSecurity(0.05m));
+        // Set up the risk management model
+        SetRiskManagement(new MyRiskManagementModel());
     }
 }
 ```
 
-### Basic Mean Reversion Strategy
+### 2. Traditional Approach
+
+The traditional approach involves implementing the `OnData` method to process market data and make trading decisions. This approach is more flexible but less structured than the Algorithm Framework.
 
 ```csharp
-public class MeanReversionAlgorithm : QCAlgorithm
+public class MyAlgorithm : QCAlgorithm
 {
+    private SimpleMovingAverage _fast;
+    private SimpleMovingAverage _slow;
+    
     public override void Initialize()
     {
         SetStartDate(2018, 1, 1);
         SetEndDate(2018, 12, 31);
         SetCash(100000);
         
-        // Universe Selection: S&P 500 stocks
-        SetUniverseSelection(new CoarseFundamentalUniverseSelectionModel(
-            coarse => coarse
-                .OrderByDescending(x => x.DollarVolume)
-                .Take(500)
-                .Select(x => x.Symbol)
-        ));
+        // Add securities
+        AddEquity("SPY");
         
-        // Alpha Model: RSI
-        SetAlpha(new RsiAlphaModel(
-            period: 14,
-            resolution: Resolution.Daily
-        ));
-        
-        // Portfolio Construction: Equal Weighting
-        SetPortfolioConstruction(new EqualWeightingPortfolioConstructionModel());
-        
-        // Execution: Immediate Execution
-        SetExecution(new ImmediateExecutionModel());
-        
-        // Risk Management: Maximum Drawdown
-        SetRiskManagement(new MaximumDrawdownPercentPerSecurity(0.05m));
+        // Initialize indicators
+        _fast = SMA("SPY", 10);
+        _slow = SMA("SPY", 30);
     }
-}
-```
-
-### Basic Statistical Arbitrage Strategy
-
-```csharp
-public class StatisticalArbitrageAlgorithm : QCAlgorithm
-{
-    public override void Initialize()
+    
+    public override void OnData(Slice data)
     {
-        SetStartDate(2018, 1, 1);
-        SetEndDate(2018, 12, 31);
-        SetCash(100000);
+        // Wait for indicators to be ready
+        if (!_fast.IsReady || !_slow.IsReady)
+            return;
         
-        // Universe Selection: Specific pairs
-        var symbols = new[] { "SPY", "IVV" };
-        foreach (var symbol in symbols)
+        // Generate trading signals
+        if (_fast > _slow && !Portfolio.Invested)
         {
-            AddEquity(symbol);
+            SetHoldings("SPY", 1.0);
         }
-        
-        // Alpha Model: Pairs Trading
-        SetAlpha(new PearsonCorrelationPairsTradingAlphaModel(
-            lookback: 60,
-            resolution: Resolution.Daily,
-            threshold: 2.0
-        ));
-        
-        // Portfolio Construction: Equal Weighting
-        SetPortfolioConstruction(new EqualWeightingPortfolioConstructionModel());
-        
-        // Execution: Immediate Execution
-        SetExecution(new ImmediateExecutionModel());
-        
-        // Risk Management: Maximum Drawdown
-        SetRiskManagement(new MaximumDrawdownPercentPerSecurity(0.05m));
-    }
-}
-```
-
-## Advanced Strategy Patterns
-
-### Multi-Alpha Strategy
-
-Combining multiple alpha models can improve strategy performance by diversifying signal sources.
-
-```csharp
-public class MultiAlphaAlgorithm : QCAlgorithm
-{
-    public override void Initialize()
-    {
-        SetStartDate(2018, 1, 1);
-        SetEndDate(2018, 12, 31);
-        SetCash(100000);
-        
-        // Universe Selection
-        SetUniverseSelection(new CoarseFundamentalUniverseSelectionModel(
-            coarse => coarse
-                .OrderByDescending(x => x.DollarVolume)
-                .Take(100)
-                .Select(x => x.Symbol)
-        ));
-        
-        // Alpha Model: Combine multiple alpha models
-        SetAlpha(new CompositeAlphaModel(
-            new EmaCrossAlphaModel(),
-            new RsiAlphaModel(),
-            new MacdAlphaModel()
-        ));
-        
-        // Portfolio Construction
-        SetPortfolioConstruction(new EqualWeightingPortfolioConstructionModel());
-        
-        // Execution
-        SetExecution(new ImmediateExecutionModel());
-        
-        // Risk Management
-        SetRiskManagement(new CompositeRiskManagementModel(
-            new MaximumDrawdownPercentPerSecurity(0.05m),
-            new MaximumSectorExposureRiskManagementModel(0.20m)
-        ));
-    }
-}
-```
-
-### Adaptive Strategy
-
-Adaptive strategies adjust their parameters or models based on market conditions.
-
-```csharp
-public class AdaptiveAlgorithm : QCAlgorithm
-{
-    private readonly Dictionary<string, AlphaModel> _alphaModels;
-    private string _currentModel;
-    
-    public AdaptiveAlgorithm()
-    {
-        _alphaModels = new Dictionary<string, AlphaModel>
+        else if (_fast < _slow && Portfolio.Invested)
         {
-            { "Trend", new EmaCrossAlphaModel() },
-            { "MeanReversion", new RsiAlphaModel() }
-        };
-        _currentModel = "Trend";
-    }
-    
-    public override void Initialize()
-    {
-        SetStartDate(2018, 1, 1);
-        SetEndDate(2018, 12, 31);
-        SetCash(100000);
-        
-        // Universe Selection
-        SetUniverseSelection(new CoarseFundamentalUniverseSelectionModel(
-            coarse => coarse
-                .OrderByDescending(x => x.DollarVolume)
-                .Take(100)
-                .Select(x => x.Symbol)
-        ));
-        
-        // Alpha Model: Start with trend following
-        SetAlpha(_alphaModels[_currentModel]);
-        
-        // Portfolio Construction
-        SetPortfolioConstruction(new EqualWeightingPortfolioConstructionModel());
-        
-        // Execution
-        SetExecution(new ImmediateExecutionModel());
-        
-        // Risk Management
-        SetRiskManagement(new MaximumDrawdownPercentPerSecurity(0.05m));
-        
-        // Schedule the model selection
-        Schedule.On(DateRules.MonthStart(), TimeRules.AfterMarketOpen(), SelectModel);
-    }
-    
-    private void SelectModel()
-    {
-        // Calculate market volatility
-        var spy = AddEquity("SPY");
-        var volatility = spy.Volatility.Value;
-        
-        // Select model based on volatility
-        var newModel = volatility > 0.2 ? "MeanReversion" : "Trend";
-        
-        if (newModel != _currentModel)
-        {
-            _currentModel = newModel;
-            SetAlpha(_alphaModels[_currentModel]);
-            Debug($"Switched to {_currentModel} model");
+            Liquidate();
         }
     }
 }
 ```
+
+### 3. Hybrid Approach
+
+The hybrid approach combines elements of both the Algorithm Framework and the traditional approach. It uses the Algorithm Framework for some components and custom logic in the `OnData` method for others.
+
+```csharp
+public class MyAlgorithm : QCAlgorithm
+{
+    public override void Initialize()
+    {
+        SetStartDate(2018, 1, 1);
+        SetEndDate(2018, 12, 31);
+        SetCash(100000);
+        
+        // Set up the universe selection model
+        SetUniverseSelection(new MyUniverseSelectionModel());
+        
+        // Add securities
+        AddEquity("SPY");
+    }
+    
+    public override void OnData(Slice data)
+    {
+        // Custom trading logic
+        if (!Portfolio.Invested)
+        {
+            SetHoldings("SPY", 1.0);
+        }
+    }
+}
+```
+
+## Strategy Development Process
+
+The strategy development process typically involves the following steps:
+
+1. **Define Strategy Objectives**: Define the goals and constraints of the strategy.
+2. **Research and Backtest**: Research and backtest the strategy using historical data.
+3. **Optimize Parameters**: Optimize the strategy parameters to improve performance.
+4. **Validate Strategy**: Validate the strategy using out-of-sample data.
+5. **Implement Strategy**: Implement the strategy using the Algorithm Framework or traditional approach.
+6. **Monitor and Adjust**: Monitor the strategy's performance and adjust as needed.
+
+## Best Practices
+
+### 1. Separation of Concerns
+
+Separate different aspects of your strategy into distinct components. This makes the strategy more maintainable, testable, and reusable.
+
+### 2. Avoid Overfitting
+
+Be careful not to overfit your strategy to historical data. Use out-of-sample testing and cross-validation to validate your strategy.
+
+### 3. Consider Transaction Costs
+
+Include transaction costs in your backtests to get a more realistic estimate of strategy performance.
+
+### 4. Manage Risk
+
+Implement proper risk management to protect your portfolio from significant drawdowns.
+
+### 5. Test Edge Cases
+
+Test your strategy under various market conditions, including extreme events, to ensure it's robust.
 
 ## Next Steps
 
 For detailed information about each strategy component, refer to the individual component documentation:
 
+- [Universe Selection](./universe-selection.md)
 - [Alpha Models](./alpha-models.md)
 - [Portfolio Construction](./portfolio-construction.md)
 - [Execution Models](./execution-models.md)
-- [Universe Selection](./universe-selection.md)
