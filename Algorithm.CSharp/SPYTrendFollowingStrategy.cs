@@ -85,7 +85,7 @@ namespace QuantConnect.Algorithm.CSharp
             SetBenchmark("SPY");
             
             // Set brokerage model
-            SetBrokerageModel(BrokerageName.InteractiveBrokersBrokerage, AccountType.Margin);
+            SetBrokerageModel(Brokerages.BrokerageName.InteractiveBrokersBrokerage, AccountType.Margin);
             
             // Set warm-up period to ensure indicators are ready
             SetWarmUp(200);
@@ -180,11 +180,29 @@ namespace QuantConnect.Algorithm.CSharp
                 return;
             }
             
-            // Check if we have data for SPY and VIX
-            if (!data.ContainsKey(_spySymbol) || !data.ContainsKey(_vixSymbol))
+            // Log data availability once a month
+            if (Time.Day == 1)
             {
+                bool hasSpy = data.ContainsKey(_spySymbol);
+                bool hasVix = data.ContainsKey(_vixSymbol);
+                Log($"DEBUG [{Time}] - Data availability: SPY={hasSpy}, VIX={hasVix}");
+                
+                if (!hasSpy || !hasVix)
+                {
+                    Log($"WARNING: Missing data - SPY={hasSpy}, VIX={hasVix}");
+                    if (!hasSpy) Log("SPY data is missing. This is critical for the strategy.");
+                    if (!hasVix) Log("VIX data is missing. This is used for volatility filtering.");
+                }
+            }
+            
+            // Check if we have SPY data (required)
+            if (!data.ContainsKey(_spySymbol))
+            {
+                Log($"ERROR: SPY data missing at {Time}. Cannot proceed without price data.");
                 return;
             }
+            
+            // VIX data is optional - we'll use default values if missing
             
             // Update rolling windows
             if (_atr.IsReady)
@@ -203,7 +221,12 @@ namespace QuantConnect.Algorithm.CSharp
             Plot("Indicators", "RSI", _rsi.Current.Value);
             
             Plot("Risk Management", "ATR", _atr.Current.Value);
-            Plot("Risk Management", "VIX", Securities[_vixSymbol].Close);
+            
+            // Plot VIX if available
+            if (Securities.ContainsKey(_vixSymbol))
+            {
+                Plot("Risk Management", "VIX", Securities[_vixSymbol].Close);
+            }
             
             if (_atr90.IsReady)
             {
@@ -263,7 +286,14 @@ namespace QuantConnect.Algorithm.CSharp
             decimal macdValue = _macd.Current.Value;
             decimal macdSignal = _macd.Signal.Current.Value;
             decimal rsiValue = _rsi.Current.Value;
-            decimal vixValue = Securities[_vixSymbol].Close;
+            
+            // Get VIX value if available, otherwise use a default value
+            decimal vixValue = 20m; // Default moderate volatility value
+            bool hasVixData = Securities.ContainsKey(_vixSymbol);
+            if (hasVixData)
+            {
+                vixValue = Securities[_vixSymbol].Close;
+            }
             
             // Primary signal: EMA crossover
             bool emaCrossover = fastEma > slowEma && _fastEma.Current.Value > _fastEma.Previous.Value;
@@ -274,6 +304,13 @@ namespace QuantConnect.Algorithm.CSharp
             // Confirmation signals
             bool macdConfirmation = macdValue > macdSignal;
             bool rsiConfirmation = rsiValue > 50;
+            
+            // Log indicator values periodically (once a month) for debugging
+            if (Time.Day == 1)
+            {
+                Log($"DEBUG [{Time}] - Indicators: FastEMA={fastEma:F2}, SlowEMA={slowEma:F2}, ADX={adxValue:F2}, MACD={macdValue:F2}, RSI={rsiValue:F2}, VIX={vixValue:F2} (VIX data available: {hasVixData})");
+                Log($"DEBUG [{Time}] - Conditions: EMACrossover={emaCrossover}, StrongTrend={strongTrend}, MACDConfirm={macdConfirmation}, RSIConfirm={rsiConfirmation}");
+            }
             
             // Check for entry signal
             if (emaCrossover && strongTrend)
@@ -436,11 +473,21 @@ namespace QuantConnect.Algorithm.CSharp
                 basePosition = 0.5m;  // 50% for moderate trends
             }
             
-            // Adjust for volatility (VIX)
-            if (vixValue > 30)
+            // Adjust for volatility (VIX) if data is available
+            bool hasVixData = Securities.ContainsKey(_vixSymbol);
+            if (hasVixData && vixValue > 30)
             {
                 basePosition *= 0.5m;  // Reduce by 50% during high volatility
                 Log($"High volatility detected (VIX = {vixValue:F2}). Reducing position size.");
+            }
+            else if (!hasVixData)
+            {
+                // If VIX data is missing, use a moderate adjustment as a precaution
+                basePosition *= 0.8m;  // Reduce by 20% as a default precaution
+                if (Time.Day == 1) // Log only once a month to avoid log spam
+                {
+                    Log("VIX data unavailable. Using conservative position sizing (80% of base).");
+                }
             }
             
             // Adjust for ATR volatility
