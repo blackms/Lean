@@ -1139,6 +1139,7 @@ namespace QuantConnect.Algorithm
         /// and because Python does not support two methods with the same name</remarks>
         [Obsolete("This method is deprecated and will be removed after August 2021. Please use this overload: OnEndOfDay(Symbol symbol)")]
         [DocumentationAttribute(HandlingData)]
+        [StubsIgnore]
         public virtual void OnEndOfDay()
         {
 
@@ -1153,6 +1154,7 @@ namespace QuantConnect.Algorithm
         /// </remarks>
         /// <param name="symbol">Asset symbol for this end of day event. Forex and equities have different closing hours.</param>
         [DocumentationAttribute(HandlingData)]
+        [StubsIgnore]
         public virtual void OnEndOfDay(string symbol)
         {
         }
@@ -1162,6 +1164,7 @@ namespace QuantConnect.Algorithm
         /// </summary>
         /// <param name="symbol">Asset symbol for this end of day event. Forex and equities have different closing hours.</param>
         [DocumentationAttribute(HandlingData)]
+        [StubsAvoidImplicits]
         public virtual void OnEndOfDay(Symbol symbol)
         {
             OnEndOfDay(symbol.ToString());

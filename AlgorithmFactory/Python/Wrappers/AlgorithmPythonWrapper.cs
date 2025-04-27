@@ -830,6 +830,7 @@ namespace QuantConnect.AlgorithmFactory.Python.Wrappers
         /// <remarks>Deprecated because different assets have different market close times,
         /// and because Python does not support two methods with the same name</remarks>
         [Obsolete("This method is deprecated. Please use this overload: OnEndOfDay(Symbol symbol)")]
+        [StubsIgnore]
         public void OnEndOfDay()
         {
             try
@@ -855,6 +856,7 @@ namespace QuantConnect.AlgorithmFactory.Python.Wrappers
         /// override then this method will not be called without a called to base.OnEndOfDay(string)
         /// </remarks>
         /// <param name="symbol">Asset symbol for this end of day event. Forex and equities have different closing hours.</param>
+        [StubsAvoidImplicits]
         public void OnEndOfDay(Symbol symbol)
         {
             try
@@ -1177,7 +1179,7 @@ namespace QuantConnect.AlgorithmFactory.Python.Wrappers
         /// <param name="slice">The Slice object</param>
         public void SetCurrentSlice(Slice slice)
         {
-            _baseAlgorithm.SetCurrentSlice(new PythonSlice(slice));
+            _baseAlgorithm.SetCurrentSlice(slice);
         }
 
         /// <summary>
