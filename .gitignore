@@ -280,3 +280,5 @@ Research/Notebooks
 
 #Docker result files
 Results/
+
+venv/
